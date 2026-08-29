@@ -12,7 +12,7 @@ public class Canon : MonoBehaviour
     [Header("Bullet Init settings")]
     [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private float bulletSpeed = 15f;
-    [SerializeField] private float bulletScale = 0.1f; // Time between shots
+    [SerializeField] private float bulletScale = 0.1f;
 
     public void Init(Player player, Vector3 position, Quaternion rotation)
     {
@@ -37,6 +37,15 @@ public class Canon : MonoBehaviour
     }
 
     private void Shoot(InputAction.CallbackContext context)
+    {
+        Fire();
+    }
+
+    /// <summary>
+    /// Публичный выстрел без InputAction — вызывается PachinkoField
+    /// через PachinkoCounter.OnBulletRequested во время серии Release.
+    /// </summary>
+    public void Fire()
     {
         GameObject bullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
         Bullet bulletComponent = bullet.GetComponent<Bullet>();

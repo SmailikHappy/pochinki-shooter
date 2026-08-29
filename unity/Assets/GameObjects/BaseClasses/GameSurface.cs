@@ -18,9 +18,13 @@ public class GameSurface : MonoBehaviour
     private GameObject pixelParent;
     private GameObject canonParent;
 
+    private readonly Dictionary<Player, Canon> spawnedCanons = new();
+    public IReadOnlyDictionary<Player, Canon> SpawnedCanons => spawnedCanons;
+
     public bool SpawnGrid(IReadOnlyList<Player> players = null)
     {
         ClearChildren();
+        spawnedCanons.Clear();
 
         pixelParent = new GameObject("PixelParent");
         pixelParent.transform.SetParent(transform);
@@ -74,12 +78,22 @@ public class GameSurface : MonoBehaviour
             canonInstance.transform.localRotation = spawnTransform.localRotation;
             canonInstance.transform.localScale = canonSpawnScale;
 
+            CanonRotator rotator = canonInstance.GetComponent<CanonRotator>();
+            if (rotator != null)
+            {
+                Vector3 facingDirection = -spawnTransform.localPosition; // от угла к центру поля
+                facingDirection.y = 0f;
+                rotator.SetFacingDirection(facingDirection.normalized);
+                rotator.SetPhaseByIndex(i, players.Count);
+            }
+
             Canon canon = canonInstance.GetComponent<Canon>();
             canon.Init(player, canonInstance.transform.position, canonInstance.transform.rotation);
+            spawnedCanons[player] = canon;
         }
 
         return true;
-    }
+        }
 
     public List<Transform> GetSpawnTransforms()
     {

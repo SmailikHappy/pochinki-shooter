@@ -10,13 +10,32 @@ public class PachinkoField : MonoBehaviour
     [SerializeField] private ScoreZone zoneMultiplier;
     [SerializeField] private PachinkoCounter counter;
 
-    private void Start()
+    public Player Owner { get; private set; }
+    private Canon linkedCanon;
+    private bool _initialized;
+
+    public void Initialize(Player owner, Canon canon)
     {
+        Owner = owner;
+        linkedCanon = canon;
+
+        if (counter != null && linkedCanon != null)
+            counter.OnBulletRequested.AddListener(linkedCanon.Fire);
+
+        _initialized = true;
         SpawnBall();
+    }
+
+    private void OnDestroy()
+    {
+        if (counter != null && linkedCanon != null)
+            counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
     }
 
     private void SpawnBall()
     {
+        if (!_initialized) return;
+
         if (ballPrefab == null || spawnPoint == null)
         {
             Debug.LogWarning("PachinkoField: не задан ballPrefab или spawnPoint.", this);

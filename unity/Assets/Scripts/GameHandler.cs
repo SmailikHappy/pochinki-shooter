@@ -20,7 +20,16 @@ public sealed class GameHandler : MonoBehaviour
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private GameSurface gameSurface;
 
+    [Header("Pachinko")]
+    [SerializeField] private GameObject pachinkoFieldPrefab;
+    [Tooltip("Абсолютная мировая позиция поля для нижнего-левого угла (индекс 0).")]
+    [SerializeField] private Vector3 bottomLeftFieldPosition = new Vector3(-4.2f, 0f, -4.2f);
+    [Tooltip("Абсолютная мировая позиция поля для верхнего-левого угла (индекс 2).")]
+    [SerializeField] private Vector3 topLeftFieldPosition = new Vector3(-7.02f, 0f, -2.42f);
+    [SerializeField] private Vector3 pachinkoFieldRotationOffset = new Vector3(90f, 0f, 0f);
+
     private readonly Dictionary<ulong, Player> players = new();
+    private readonly List<PachinkoField> spawnedFields = new();
     public GameState gameState { get; private set; } = GameState.WaitingForPlayers;
 
     private void Awake()
@@ -55,8 +64,67 @@ public sealed class GameHandler : MonoBehaviour
         };
 
         gameSurface.SpawnGrid(playersForGrid);
+        SpawnPachinkoFields(playersForGrid);
+
         gameState = GameState.InProgress;
     }
+
+    private void SpawnPachinkoFields(IReadOnlyList<Player> playersForGrid)
+    {
+        if (pachinkoFieldPrefab == null)
+        {
+            Debug.LogWarning("GameHandler: не задан pachinkoFieldPrefab.", this);
+            return;
+        }
+
+        List<Transform> cornerSpawns = gameSurface.GetSpawnTransforms();
+        float centerX = gameSurface.transform.position.x;
+        Quaternion rotation = Quaternion.Euler(pachinkoFieldRotationOffset);
+
+        for (int i = 0; i < playersForGrid.Count && i < cornerSpawns.Count; i++)
+        {
+            Player player = playersForGrid[i];
+            if (player == null)
+                continue;
+
+            Vector3 spawnPosition = GetFieldPosition(i, centerX);
+            GameObject fieldInstance = Instantiate(pachinkoFieldPrefab, spawnPosition, rotation);
+            PachinkoField field = fieldInstance.GetComponent<PachinkoField>();
+
+            if (field == null)
+            {
+                Debug.LogWarning("GameHandler: на pachinkoFieldPrefab нет PachinkoField.", fieldInstance);
+                continue;
+            }
+
+            gameSurface.SpawnedCanons.TryGetValue(player, out Canon canon);
+            field.Initialize(player, canon);
+            spawnedFields.Add(field);
+        }
+    }
+
+    /// <summary>
+    /// Индексы из GetSpawnTransforms: 0 = низ-лево, 1 = низ-право, 2 = верх-лево, 3 = верх-право.
+    /// Правая сторона получается зеркалированием X левой относительно центра GameSurface —
+    /// тюнить в инспекторе нужно только bottomLeftFieldPosition и topLeftFieldPosition.
+    /// </summary>
+    private Vector3 GetFieldPosition(int cornerIndex, float centerX)
+    {
+        return cornerIndex switch
+        {
+            0 => bottomLeftFieldPosition,
+            1 => MirrorX(bottomLeftFieldPosition, centerX),
+            2 => topLeftFieldPosition,
+            3 => MirrorX(topLeftFieldPosition, centerX),
+            _ => Vector3.zero,
+        };
+    }
+
+private static Vector3 MirrorX(Vector3 position, float centerX)
+{
+    position.x = 2f * centerX - position.x;
+    return position;
+}
 
     private void SpawnPlayer(User user)
     {
