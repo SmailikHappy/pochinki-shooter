@@ -1,63 +1,37 @@
-import dotenv from 'dotenv';
-import express from 'express';
-import fetch from 'node-fetch';
-import { fileURLToPath } from 'node:url';
-
-dotenv.config({ path: fileURLToPath(new URL('../.env', import.meta.url)) });
+import express from "express";
+import dotenv from "dotenv";
+import fetch from "node-fetch";
+dotenv.config({ path: "../.env" });
 
 const app = express();
-const port = Number(process.env.PORT) || 3001;
-const clientId = process.env.VITE_DISCORD_CLIENT_ID;
-const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+const port = 3001;
 
+// Allow express to parse JSON bodies
 app.use(express.json());
 
-app.get('/api/health', (_request, response) => {
-  response.json({ ok: true, time: new Date().toISOString() });
-});
+app.post("/api/token", async (req, res) => {
+  
+  // Exchange the code for an access_token
+  const response = await fetch(`https://discord.com/api/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      client_id: process.env.VITE_DISCORD_CLIENT_ID,
+      client_secret: process.env.DISCORD_CLIENT_SECRET,
+      grant_type: "authorization_code",
+      code: req.body.code,
+    }),
+  });
 
-app.post('/api/token', async (request, response) => {
-  const code = request.body?.code;
+  // Retrieve the access_token from the response
+  const { access_token } = await response.json();
 
-  if (!code) {
-    return response.status(400).json({ error: 'code is required' });
-  }
-
-  if (
-    !clientId ||
-    !clientSecret ||
-    clientId === 'your_client_id_here' ||
-    clientSecret === 'your_client_secret_here'
-  ) {
-    return response.status(500).json({ error: 'Discord credentials are not configured' });
-  }
-
-  try {
-    const discordResponse = await fetch('https://discord.com/api/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        grant_type: 'authorization_code',
-        code,
-      }),
-    });
-
-    const data = await discordResponse.json();
-
-    if (!discordResponse.ok) {
-      console.error('Discord token exchange failed:', data);
-      return response.status(discordResponse.status).json(data);
-    }
-
-    return response.json({ access_token: data.access_token });
-  } catch (error) {
-    console.error('Token exchange error:', error);
-    return response.status(500).json({ error: 'token exchange failed' });
-  }
+  // Return the access_token to our client as { access_token: "..."}
+  res.send({access_token});
 });
 
 app.listen(port, () => {
-  console.log(`Discord Activity backend: http://localhost:${port}`);
+  console.log(`Server listening at http://localhost:${port}`);
 });

@@ -1,49 +1,62 @@
-import { DiscordSDK } from '@discord/embedded-app-sdk';
-import './style.css';
+import { DiscordSDK } from "@discord/embedded-app-sdk";
 
-const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
-const statusElement = document.querySelector('#status');
-const errorElement = document.querySelector('#error');
+import rocketLogo from '/rocket.png';
+import "./style.css";
 
-if (!clientId || clientId === 'your_client_id_here') {
-  showError('Укажите VITE_DISCORD_CLIENT_ID в корневом файле .env');
-} else {
-  const discordSdk = new DiscordSDK(clientId);
-  setupDiscord(discordSdk).catch((error) => {
-    console.error(error);
-    showError(error instanceof Error ? error.message : String(error));
-  });
-}
+// Will eventually store the authenticated user's access_token
+let auth;
 
-async function setupDiscord(discordSdk) {
+const discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
+
+setupDiscordSdk().then(() => {
+  console.log("Discord SDK is authenticated");
+
+  // We can now make API calls within the scopes we requested in setupDiscordSDK()
+  // Note: the access_token returned is a sensitive secret and should be treated as such
+});
+
+async function setupDiscordSdk() {
   await discordSdk.ready();
+  console.log("Discord SDK is ready");
 
+  // Authorize with Discord Client
   const { code } = await discordSdk.commands.authorize({
-    client_id: clientId,
-    response_type: 'code',
-    prompt: 'none',
-    scope: ['identify'],
+    client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
+    response_type: "code",
+    state: "",
+    prompt: "none",
+    scope: [
+      "identify",
+      "guilds",
+      "applications.commands"
+    ],
   });
 
-  const response = await fetch('/api/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code }),
+  // Retrieve an access_token from your activity's server
+  const response = await fetch("/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      code,
+    }),
+  });
+  const { access_token } = await response.json();
+
+  // Authenticate with Discord client (using the access_token)
+  auth = await discordSdk.commands.authenticate({
+    access_token,
   });
 
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Token exchange failed (${response.status}): ${details}`);
+  if (auth == null) {
+    throw new Error("Authenticate command failed");
   }
-
-  const { access_token: accessToken } = await response.json();
-  const auth = await discordSdk.commands.authenticate({ access_token: accessToken });
-
-  statusElement.textContent = `Привет, ${auth.user.username} 👋`;
 }
 
-function showError(message) {
-  statusElement.textContent = 'Ошибка запуска Activity';
-  errorElement.textContent = message;
-  errorElement.hidden = false;
-}
+document.querySelector('#app').innerHTML = `
+  <div>
+    <img src="${rocketLogo}" class="logo" alt="Discord" />
+    <h1>Hello, World!</h1>
+  </div>
+`;
