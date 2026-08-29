@@ -4,3 +4,4 @@
 cloudflared.exe
 node_modules/
 dist/
+client/public/unity-build/

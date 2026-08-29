@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, height=device-height, initial-scale=1, user-scalable=no"
+    />
+    <title>{{{ PRODUCT_NAME }}}</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+
+      #unity-canvas {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        background: {{{ BACKGROUND_COLOR }}};
+      }
+
+      #unity-loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        gap: 12px;
+        color: #fff;
+        font: 16px system-ui, sans-serif;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      #unity-progress {
+        width: min(320px, 70vw);
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #2b2d31;
+      }
+
+      #unity-progress-value {
+        width: 0;
+        height: 100%;
+        background: #5865f2;
+        transition: width 120ms linear;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+    <div id="unity-loading">
+      <div>Loading Pochinki Shooter…</div>
+      <div id="unity-progress"><div id="unity-progress-value"></div></div>
+    </div>
+
+    <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+    <script>
+      const canvas = document.querySelector('#unity-canvas');
+      const loading = document.querySelector('#unity-loading');
+      const progress = document.querySelector('#unity-progress-value');
+
+      createUnityInstance(
+        canvas,
+        {
+          arguments: [],
+          dataUrl: 'Build/{{{ DATA_FILENAME }}}',
+          frameworkUrl: 'Build/{{{ FRAMEWORK_FILENAME }}}',
+#if USE_WASM
+          codeUrl: 'Build/{{{ CODE_FILENAME }}}',
+#endif
+#if SYMBOLS_FILENAME
+          symbolsUrl: 'Build/{{{ SYMBOLS_FILENAME }}}',
+#endif
+          streamingAssetsUrl: 'StreamingAssets',
+          companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+          productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+          productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        },
+        (value) => {
+          progress.style.width = `${Math.round(value * 100)}%`;
+        },
+      )
+        .then(() => {
+          loading.remove();
+          canvas.focus();
+        })
+        .catch((error) => {
+          loading.textContent = String(error);
+          console.error(error);
+        });
+    </script>
+  </body>
+</html>
