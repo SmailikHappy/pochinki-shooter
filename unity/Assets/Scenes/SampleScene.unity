@@ -150,6 +150,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameHandler
   playerPrefab: {fileID: 2430826507550259635, guid: 89222f3565e52b84a98763380a7eed1a, type: 3}
   gameSurface: {fileID: 372330431}
+  baseMaterial: {fileID: 2100000, guid: 151c0c72e78ed7048bfa8d99f18d7f37, type: 2}
   pachinkoFieldPrefab: {fileID: 2271690461407714420, guid: 1d511674bb4fc8a49aab2630c87381c1, type: 3}
   bottomLeftFieldPosition: {x: -4.2, y: 0, z: -4.2}
   topLeftFieldPosition: {x: -7.02, y: 0, z: -2.42}
@@ -1057,6 +1058,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1977161453}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 90}
+--- !u!1 &1880361989
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1880361990}
+  m_Layer: 0
+  m_Name: PochinkSpawnPoint1
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1880361990
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1880361989}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -7.86, y: 0, z: -2.76}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1977161452
 GameObject:
   m_ObjectHideFlags: 0
@@ -1104,3 +1136,4 @@ SceneRoots:
   - {fileID: 194844651}
   - {fileID: 536920733}
   - {fileID: 653424171}
+  - {fileID: 1880361990}
