@@ -20,31 +20,16 @@ public enum ScoreZoneType
 public class ScoreZone : MonoBehaviour
 {
     [SerializeField] private ScoreZoneType zoneType;
-
-    [Tooltip("Множитель для типа Multiplier (обычно 2). Для типа R не используется.")]
     [SerializeField] private float multiplierValue = 2f;
 
-    [Tooltip("Визуально показывать неактивное состояние (например, затемнять материал).")]
-    [SerializeField] private Renderer visual;
+    private bool isActive = true;
 
     public ScoreZoneType ZoneType => zoneType;
     public float MultiplierValue => multiplierValue;
-    public bool IsActive { get; private set; } = true;
-
-    private void Reset()
-    {
-        var col = GetComponent<Collider>();
-        col.isTrigger = true;
-    }
+    public bool IsActive => isActive;
 
     public void SetActive(bool active)
     {
-        IsActive = active;
-        if (visual != null && visual.material.HasProperty("_Color"))
-        {
-            var c = visual.material.color;
-            c.a = active ? 1f : 0.4f;
-            visual.material.color = c;
-        }
+        isActive = active;
     }
 }

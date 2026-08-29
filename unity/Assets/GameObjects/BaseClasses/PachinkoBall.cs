@@ -55,17 +55,21 @@ public class PachinkoBall : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (_consumed) return;
+        if (_consumed)
+            return;
 
-        var zone = other.GetComponent<ScoreZone>();
-        if (zone == null) return;
+        ScoreZone zone = other.GetComponent<ScoreZone>();
 
-        // Пока идёт "выстрел" пулями — области неактивны (см. ScoreZone.IsActive),
-        // шарик в этот момент должен просто продолжать падать/отскакивать дальше.
-        if (!zone.IsActive) return;
+        if (zone == null)
+            return;
+
+        if (!zone.IsActive)
+            return;
 
         _consumed = true;
+
         field?.OnBallScored(zone, this);
+
         Destroy(gameObject);
     }
 
