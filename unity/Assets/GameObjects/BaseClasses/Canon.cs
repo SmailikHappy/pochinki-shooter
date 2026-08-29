@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 
 public class Canon : MonoBehaviour
 {
-    public Player Owner { get; private set; }
+    public Player owner { get; private set; }
 
     [SerializeField] private Transform firePoint;
     [SerializeField] private InputActionAsset inputActions;
@@ -14,22 +14,23 @@ public class Canon : MonoBehaviour
     [SerializeField] private float bulletSpeed = 15f;
     [SerializeField] private float bulletScale = 0.1f; // Time between shots
 
-    public void Init(Player player)
+    public void Init(Player player, Vector3 position, Quaternion rotation)
     {
-        Owner = player;
+        owner = player;
+        transform.SetPositionAndRotation(position, rotation);
     }
 
-    void OnEnable()
+    private void OnEnable()
     {
         inputActions.FindAction("Fire").Enable();
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
         inputActions.FindAction("Fire").Disable();
     }
 
-    void Awake()
+    private void Awake()
     {
         fireAction = inputActions.FindAction("Fire");
         fireAction.performed += Shoot;
@@ -39,6 +40,6 @@ public class Canon : MonoBehaviour
     {
         GameObject bullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
         Bullet bulletComponent = bullet.GetComponent<Bullet>();
-        bulletComponent.Init(Owner, firePoint.right, bulletSpeed, bulletScale);
+        bulletComponent.Init(owner, firePoint.right, bulletSpeed, bulletScale);
     }
 }

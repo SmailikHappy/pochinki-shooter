@@ -59,7 +59,7 @@ public sealed class DiscordHandler : MonoBehaviour
         var local = new DiscordUser(editorLocalId, "EditorTester", isSelf: true);
         LocalUserId = local.UniqueId;
         _users[local.UniqueId] = local;
-        GameHandler.Instance?.OnUserJoined?.Invoke(local);
+        GameHandler.instance?.onUserJoined?.Invoke(local);
 #endif
     }
 
@@ -94,7 +94,7 @@ public sealed class DiscordHandler : MonoBehaviour
             {
                 user = new DiscordUser(p.userId, p.username, p.userId == LocalUserId);
                 _users[p.userId] = user;
-                GameHandler.Instance?.OnUserJoined?.Invoke(user);
+                GameHandler.instance?.onUserJoined?.Invoke(user);
             }
 
             user.Username = string.IsNullOrWhiteSpace(p.username) ? user.Username : p.username;
@@ -115,7 +115,7 @@ public sealed class DiscordHandler : MonoBehaviour
         foreach (var id in toRemove)
         {
             if (!_users.Remove(id, out var user)) continue;
-            GameHandler.Instance?.OnUserLeft?.Invoke(user);
+            GameHandler.instance?.onUserLeft?.Invoke(user);
         }
     }
 
