@@ -246,7 +246,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameHandler
   playerPrefab: {fileID: 2430826507550259635, guid: 89222f3565e52b84a98763380a7eed1a, type: 3}
-  spawnPoint: {fileID: 653424171}
+  spawnPoints: []
   gameSurface: {fileID: 372330431}
 --- !u!4 &194844651
 Transform:
@@ -541,11 +541,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad2783689c30a174ba01e75b830a7c4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSurface
-  prefab: {fileID: 5450222007341424355, guid: a62a433bc146f01498dbd551b8059629, type: 3}
   rows: 15
   columns: 15
   spacingX: 2
   spacingZ: 2
+  pixelPrefab: {fileID: 5450222007341424355, guid: a62a433bc146f01498dbd551b8059629, type: 3}
+  pixelSpawnScale: {x: 1, y: 1, z: 1}
+  canonPrefab: {fileID: 3747486295779477885, guid: 10262ab6527bf784ab0808620ea6eae4, type: 3}
+  canonSpawnScale: {x: 2, y: 2, z: 2}
 --- !u!4 &372330432
 Transform:
   m_ObjectHideFlags: 0
@@ -1888,5 +1891,4 @@ SceneRoots:
   - {fileID: 933559046}
   - {fileID: 605490001}
   - {fileID: 194844651}
-  - {fileID: 653424171}
   - {fileID: 536920733}

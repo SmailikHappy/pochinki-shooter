@@ -2,8 +2,8 @@ using UnityEngine;
 
 public class Bullet : MonoBehaviour
 {
-    public Player Owner { get; private set; }
-    public User OwnerUser => Owner != null ? Owner.User : null;
+    public Player owner { get; private set; }
+    public User ownerUser => owner != null ? owner.user : null;
 
     [SerializeField] private LayerMask wallLayer;
 
@@ -29,12 +29,14 @@ public class Bullet : MonoBehaviour
 
     public void Init(Player owner, Vector3 direction, float speed, float scale)
     {
-        this.Owner = owner;
-        this.direction = direction.normalized;
+        Debug.Log($"Bullet Init: Direction: {direction}, Speed: {speed}, Scale: {scale}, Owner: {ownerUser?.UniqueId}");
+        this.owner = owner;
+        this.direction = direction;
         this.speed = speed;
         transform.localScale = new Vector3(scale, scale, scale);
 
-        _rb.linearVelocity = this.direction * this.speed;
+        Rigidbody rb = GetComponent<Rigidbody>();
+        rb.linearVelocity = direction * speed;
     }
 
     private void OnCollisionEnter(Collision collision)

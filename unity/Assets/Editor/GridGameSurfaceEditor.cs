@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -23,7 +24,16 @@ public class GameSurfaceEditor : Editor
 
     void SpawnGrid(GameSurface spawner)
     {
-        spawner.SpawnGrid();
+        Debug.Log("Spawning debug grid...");
+
+        List<Player> players = new()
+        {
+            new GameObject("DebugPlayer1").AddComponent<Player>(),
+            new GameObject("DebugPlayer2").AddComponent<Player>(),
+            new GameObject("DebugPlayer3").AddComponent<Player>(),
+            new GameObject("DebugPlayer4").AddComponent<Player>()
+        };
+        spawner.SpawnGrid(players);
     }
 
     void ClearChildren(GameSurface spawner)

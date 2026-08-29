@@ -48,6 +48,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Player
   usernameText: {fileID: 870626367808741478}
+  canon: {fileID: 3747486295779477885, guid: 10262ab6527bf784ab0808620ea6eae4, type: 3}
 --- !u!33 &2667649035276065331
 MeshFilter:
   m_ObjectHideFlags: 0
