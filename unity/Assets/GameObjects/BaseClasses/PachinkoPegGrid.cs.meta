@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 20734493c164fab45a894478112765c1
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - pegPrefab: {fileID: 7163717774487629658, guid: b00a7543619096240b7ea45b4bb13834, type: 3}
+  - pegsParent: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
