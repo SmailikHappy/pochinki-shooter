@@ -5,8 +5,6 @@ const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
 const statusElement = document.querySelector('#status');
 const errorElement = document.querySelector('#error');
 const guildAvatarElement = document.querySelector('#guild-avatar');
-const statusPanelElement = document.querySelector('#status-panel');
-const unityFrameElement = document.querySelector('#unity-frame');
 let currentStage = 'Инициализация';
 
 if (!clientId || clientId === 'your_client_id_here') {
@@ -81,21 +79,6 @@ async function setupDiscord(discordSdk) {
     `Guild ID: ${discordSdk.guildId ?? 'DM/GDM'}`,
     `Channel ID: ${discordSdk.channelId ?? 'Unknown'}`,
   ].join('\n');
-
-  launchUnity();
-}
-
-function launchUnity() {
-  unityFrameElement.addEventListener(
-    'load',
-    () => {
-      statusPanelElement.hidden = true;
-      unityFrameElement.hidden = false;
-    },
-    { once: true },
-  );
-
-  unityFrameElement.src = '/unity-build/index.html';
 }
 
 async function fetchCurrentGuild(accessToken, guildId) {
@@ -188,8 +171,6 @@ function formatError(error) {
 }
 
 function showError(message) {
-  unityFrameElement.hidden = true;
-  statusPanelElement.hidden = false;
   statusElement.textContent = 'Ошибка запуска Activity';
   errorElement.textContent = message;
   errorElement.hidden = false;
