@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7306203335847053161}
   - component: {fileID: 368169464117107810}
+  - component: {fileID: 2211495261707971362}
   - component: {fileID: 5572927529754745562}
   - component: {fileID: 5060444853313229736}
   - component: {fileID: -3823260105409562235}
@@ -47,6 +48,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e528c058928b4ca4ea1669cb20461deb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Bullet
+--- !u!114 &2211495261707971362
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 985186708055616583}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95548a36e685dfe47aee9038f4d46e32, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerOwnable
+  playerRenderer: {fileID: 5060444853313229736}
 --- !u!33 &5572927529754745562
 MeshFilter:
   m_ObjectHideFlags: 0

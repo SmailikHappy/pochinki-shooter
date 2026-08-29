@@ -42,6 +42,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1691734737425053966}
   - component: {fileID: 550975679343666492}
+  - component: {fileID: 8394732363149474935}
   m_Layer: 0
   m_Name: Canon
   m_TagString: Untagged
@@ -83,6 +84,19 @@ MonoBehaviour:
   bulletPrefab: {fileID: 985186708055616583, guid: 36288f919bcb4224eb71dae781acd265, type: 3}
   bulletSpeed: 1
   bulletScale: 0.1
+--- !u!114 &8394732363149474935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3747486295779477885}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95548a36e685dfe47aee9038f4d46e32, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerOwnable
+  playerRenderer: {fileID: 6345107910879841976}
 --- !u!1 &5814755421806070912
 GameObject:
   m_ObjectHideFlags: 0

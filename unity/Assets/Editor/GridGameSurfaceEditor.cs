@@ -33,6 +33,11 @@ public class GameSurfaceEditor : Editor
             new GameObject("DebugPlayer3").AddComponent<Player>(),
             new GameObject("DebugPlayer4").AddComponent<Player>()
         };
+
+        foreach (var player in players)
+        {
+            player.SetMaterial(new Material(Shader.Find("Standard")));
+        }
         spawner.SpawnGrid(players);
     }
 

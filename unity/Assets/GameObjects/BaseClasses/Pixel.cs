@@ -1,11 +1,10 @@
 using UnityEngine;
 
+[RequireComponent(typeof(PlayerOwnable))]
 public class Pixel : MonoBehaviour
 {
-    public Player owner { get; private set; }
-
-    public void Initialize(Player owner)
+    public void Init(Player owner)
     {
-        this.owner = owner;
+        GetComponent<PlayerOwnable>().SetOwner(owner);
     }
 }

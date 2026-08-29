@@ -45,7 +45,7 @@ public class GameSurface : MonoBehaviour
 
                 Pixel pixel = instance.GetComponent<Pixel>();
                 Player owner = GetPlayerForPixel(x, z, players);
-                pixel?.Initialize(owner);
+                pixel?.Init(owner);
             }
         }
 

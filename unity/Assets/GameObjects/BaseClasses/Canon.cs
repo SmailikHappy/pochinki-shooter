@@ -1,9 +1,9 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(PlayerOwnable))]
 public class Canon : MonoBehaviour
 {
-    public Player owner { get; private set; }
 
     [SerializeField] private Transform firePoint;
     [SerializeField] private InputActionAsset inputActions;
@@ -13,10 +13,10 @@ public class Canon : MonoBehaviour
     [SerializeField] private GameObject bulletPrefab;
     [SerializeField] private float bulletSpeed = 15f;
     [SerializeField] private float bulletScale = 0.1f; // Time between shots
-
-    public void Init(Player player, Vector3 position, Quaternion rotation)
+    public void Init(Player owner, Vector3 position, Quaternion rotation)
     {
-        owner = player;
+        GetComponent<PlayerOwnable>().SetOwner(owner);
+        
         transform.SetPositionAndRotation(position, rotation);
     }
 
@@ -40,6 +40,7 @@ public class Canon : MonoBehaviour
     {
         GameObject bullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
         Bullet bulletComponent = bullet.GetComponent<Bullet>();
+        Player owner = GetComponent<PlayerOwnable>().GetOwner();
         bulletComponent.Init(owner, firePoint.right, bulletSpeed, bulletScale);
     }
 }

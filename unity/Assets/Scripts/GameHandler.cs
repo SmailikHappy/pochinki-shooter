@@ -17,8 +17,8 @@ public sealed class GameHandler : MonoBehaviour
     public Action<User> onUserLeft;
 
     [SerializeField] private GameObject playerPrefab;
-    [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private GameSurface gameSurface;
+    public Material baseMaterial;
 
     private readonly Dictionary<ulong, Player> players = new();
     public GameState gameState { get; private set; } = GameState.WaitingForPlayers;
@@ -69,6 +69,7 @@ public sealed class GameHandler : MonoBehaviour
         var instance = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
         var player = instance.GetComponent<Player>();
         player.Bind(user);
+        player.SetMaterial(baseMaterial);
 
         players[user.UniqueId] = player;
 
