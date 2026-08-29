@@ -5,6 +5,11 @@ using UnityEngine;
 
 public sealed class GameHandler : MonoBehaviour
 {
+    public enum GameState
+    {
+        WaitingForPlayers,
+        InProgress
+    }
     public static GameHandler Instance { get; private set; }
 
     public Action<User> OnUserJoined;
@@ -12,8 +17,10 @@ public sealed class GameHandler : MonoBehaviour
 
     [SerializeField] private GameObject playerPrefab;
     [SerializeField] private Transform spawnPoint;
+    [SerializeField] private GameSurface gameSurface;
 
     private readonly Dictionary<ulong, Player> _players = new();
+    public GameState gameState { get; private set; } = GameState.WaitingForPlayers;
 
     private void Awake()
     {
@@ -33,6 +40,12 @@ public sealed class GameHandler : MonoBehaviour
     private void SpawnPlayer(User user)
     {
         if (_players.ContainsKey(user.UniqueId)) return;
+
+        if (gameState == GameState.WaitingForPlayers)
+        {
+            gameSurface.SpawnGrid();
+            gameState = GameState.InProgress;
+        }
 
         var pos = spawnPoint != null ? spawnPoint.position : Vector3.zero;
         var instance = Instantiate(playerPrefab, pos, Quaternion.identity);
