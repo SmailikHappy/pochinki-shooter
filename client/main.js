@@ -4,6 +4,7 @@ import './style.css';
 const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
 const statusElement = document.querySelector('#status');
 const errorElement = document.querySelector('#error');
+const guildAvatarElement = document.querySelector('#guild-avatar');
 let currentStage = 'Инициализация';
 
 if (!clientId || clientId === 'your_client_id_here') {
@@ -62,12 +63,55 @@ async function setupDiscord(discordSdk) {
     channelName = channel.name ?? 'Unknown';
   }
 
+  let currentGuild = null;
+
+  if (discordSdk.guildId != null) {
+    setStage('Получение данных сервера');
+    currentGuild = await fetchCurrentGuild(accessToken, discordSdk.guildId);
+  }
+
+  showGuildAvatar(currentGuild);
+
   statusElement.textContent = [
     `Привет, ${auth.user.username} 👋`,
     `Channel: ${channelName}`,
+    `Server: ${currentGuild?.name ?? 'Unknown'}`,
     `Guild ID: ${discordSdk.guildId ?? 'DM/GDM'}`,
     `Channel ID: ${discordSdk.channelId ?? 'Unknown'}`,
   ].join('\n');
+}
+
+async function fetchCurrentGuild(accessToken, guildId) {
+  const response = await fetch('https://discord.com/api/v10/users/@me/guilds', {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(`Guild request failed (${response.status}): ${details}`);
+  }
+
+  const guilds = await response.json();
+
+  if (!Array.isArray(guilds)) {
+    throw new Error('Discord returned an invalid guild list');
+  }
+
+  return guilds.find((guild) => guild.id === guildId) ?? null;
+}
+
+function showGuildAvatar(guild) {
+  if (!guild?.icon) {
+    guildAvatarElement.hidden = true;
+    return;
+  }
+
+  guildAvatarElement.src = `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.webp?size=128`;
+  guildAvatarElement.alt = `Аватар сервера ${guild.name}`;
+  guildAvatarElement.hidden = false;
 }
 
 function setStage(stage) {
