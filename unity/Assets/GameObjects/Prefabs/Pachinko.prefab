@@ -933,7 +933,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1699011543265474053}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 150f2cfa6a9120a4680a37dc3472c4c4, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -961,7 +961,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ScoreZone
   zoneType: 0
   multiplierValue: 2
-  visual: {fileID: 0}
+  parkPoint: {fileID: 0}
 --- !u!1 &1795073949464466391
 GameObject:
   m_ObjectHideFlags: 0
@@ -1322,7 +1322,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2071688299820243846}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 150f2cfa6a9120a4680a37dc3472c4c4, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -1350,7 +1350,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ScoreZone
   zoneType: 1
   multiplierValue: 2
-  visual: {fileID: 0}
+  parkPoint: {fileID: 0}
 --- !u!1 &2271690461407714420
 GameObject:
   m_ObjectHideFlags: 0
@@ -4407,6 +4407,8 @@ MonoBehaviour:
   ballPrefab: {fileID: 7756817029176902996, guid: 8413ce3c7e4346347a4d9bf04f03db1c, type: 3}
   spawnPoint: {fileID: 3966135966587860483}
   respawnDelay: 0.3
+  zoneR: {fileID: 0}
+  zoneMultiplier: {fileID: 0}
   counter: {fileID: 1960737665678286681}
 --- !u!114 &1960737665678286681
 MonoBehaviour:
@@ -4422,11 +4424,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PachinkoCounter
   startValue: 1
   shotInterval: 0.15
-  ballBlocker: {fileID: 0}
+  field: {fileID: 0}
   OnCounterChanged:
     m_PersistentCalls:
       m_Calls: []
   OnBulletRequested:
+    m_PersistentCalls:
+      m_Calls: []
+  OnReleaseFinished:
     m_PersistentCalls:
       m_Calls: []
 --- !u!1 &8843088997547916857

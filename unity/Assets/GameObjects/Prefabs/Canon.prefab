@@ -43,6 +43,7 @@ GameObject:
   - component: {fileID: 1691734737425053966}
   - component: {fileID: 550975679343666492}
   - component: {fileID: 8394732363149474935}
+  - component: {fileID: -8759321278383870221}
   m_Layer: 0
   m_Name: Canon
   m_TagString: Untagged
@@ -85,6 +86,7 @@ MonoBehaviour:
   bulletSpeed: 1
   bulletScale: 0.1
 --- !u!114 &8394732363149474935
+--- !u!114 &-8759321278383870221
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -97,6 +99,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerOwnable
   playerRenderer: {fileID: 6345107910879841976}
+  m_Script: {fileID: 11500000, guid: ac80135f3f516fa40b89dde42f5984be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CanonRotator
+  rotationAxis: {x: 0, y: 1, z: 0}
+  rotationRange: 90
+  rotationSpeed: 60
+  phaseOffsetDegrees: 0
 --- !u!1 &5814755421806070912
 GameObject:
   m_ObjectHideFlags: 0

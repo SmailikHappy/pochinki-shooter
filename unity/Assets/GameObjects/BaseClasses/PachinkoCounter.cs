@@ -76,21 +76,19 @@ public class PachinkoCounter : MonoBehaviour
         StartCoroutine(ReleaseRoutine());
     }
 
+    public UnityEvent OnReleaseFinished;
+
     private IEnumerator ReleaseRoutine()
     {
         isReleasing = true;
-
         LastReleaseAmount = currentValue;
 
-        // Отключаем R и X2
         if (field != null)
             field.SetZonesActive(false);
 
         while (currentValue > 0)
         {
-            // Запрос одной пули
             OnBulletRequested?.Invoke();
-
             currentValue--;
             NotifyCounterChanged();
 
@@ -98,15 +96,15 @@ public class PachinkoCounter : MonoBehaviour
                 yield return new WaitForSeconds(shotInterval);
         }
 
-        // После 0 возвращаем счётчик к 1
         currentValue = 1;
         NotifyCounterChanged();
 
-        // Снова включаем R и X2
         if (field != null)
             field.SetZonesActive(true);
 
         isReleasing = false;
+
+        OnReleaseFinished?.Invoke();
     }
 
 
