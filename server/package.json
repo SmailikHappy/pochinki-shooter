@@ -1,8 +1,8 @@
 {
-  "name": "discord-activity-hello-world",
+  "name": "pochinki-shooter-server",
+  "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Минимальный тестовый стенд Discord Activity: сервер обмена токена + Hello World клиент",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"

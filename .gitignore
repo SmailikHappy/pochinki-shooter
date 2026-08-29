@@ -1,2 +1,6 @@
 .env
-node_modules
+.env.local
+.env.*.local
+cloudflared.exe
+node_modules/
+dist/
