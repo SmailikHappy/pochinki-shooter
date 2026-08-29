@@ -2,15 +2,9 @@ using UnityEngine;
 
 public class GameSurface : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
+    public GameObject prefab;
+    public int rows = 5;
+    public int columns = 5;
+    public float spacingX = 2f;
+    public float spacingZ = 2f;
 }
