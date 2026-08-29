@@ -66,6 +66,34 @@
       const canvas = document.querySelector('#unity-canvas');
       const loading = document.querySelector('#unity-loading');
       const progress = document.querySelector('#unity-progress-value');
+      let unityInstance = null;
+      let pendingMultiplayerSnapshot = null;
+
+      window.addEventListener('message', (event) => {
+        if (
+          event.source !== window.parent ||
+          event.origin !== window.location.origin ||
+          event.data?.type !== 'pochinki:multiplayer-snapshot'
+        ) {
+          return;
+        }
+
+        pendingMultiplayerSnapshot = JSON.stringify(event.data.payload);
+        deliverMultiplayerSnapshot();
+      });
+
+      function deliverMultiplayerSnapshot() {
+        if (!unityInstance || !pendingMultiplayerSnapshot) {
+          return;
+        }
+
+        unityInstance.SendMessage(
+          'InputDebugOverlay',
+          'ReceiveMultiplayerSnapshot',
+          pendingMultiplayerSnapshot,
+        );
+        pendingMultiplayerSnapshot = null;
+      }
 
       createUnityInstance(
         canvas,
@@ -88,9 +116,18 @@
           progress.style.width = `${Math.round(value * 100)}%`;
         },
       )
-        .then(() => {
+        .then((instance) => {
+          unityInstance = instance;
           loading.remove();
           canvas.focus();
+
+          window.setTimeout(() => {
+            deliverMultiplayerSnapshot();
+            window.parent.postMessage(
+              { type: 'pochinki:unity-ready' },
+              window.location.origin,
+            );
+          }, 0);
         })
         .catch((error) => {
           loading.textContent = String(error);
