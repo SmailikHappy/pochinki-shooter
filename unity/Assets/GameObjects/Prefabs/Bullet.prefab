@@ -55,6 +55,7 @@ MonoBehaviour:
     m_Bits: 64
   maxLifetimeSeconds: 20
   maxDistanceFromSpawn: 50
+  bounceRandomAngleDegrees: 1
 --- !u!114 &2211495261707971362
 MonoBehaviour:
   m_ObjectHideFlags: 0
