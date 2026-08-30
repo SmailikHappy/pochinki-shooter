@@ -9,14 +9,21 @@ public class GameSurface : MonoBehaviour
     [Header("Grid Settings")]
     [SerializeField] private int rows = 5;
     [SerializeField] private int columns = 5;
-    [SerializeField] private float spacingX = 2f;
-    [SerializeField] private float spacingZ = 2f;
-    [Tooltip("Размер сетки (по большей стороне), при котором spacingX/Z и Pixel Spawn Scale берутся как есть, без уменьшения. Больше baseline — сетка масштабируется вниз пропорционально.")]
-    [SerializeField, Min(1)] private int baselineGridSize = 15;
 
-    private float effectiveSpacingX;
-    private float effectiveSpacingZ;
+    [Tooltip("Фиксированный физический размер поля (ширина, глубина) в мировых единицах. " +
+             "Не меняется от rows/columns/spacing — только от этого значения.")]
+    [SerializeField] private Vector2 fieldWorldSize = new Vector2(30f, 30f);
+
+    [Tooltip("Коэффициент соотношения визуальный пиксель / зона захвата, не мировая дистанция. " +
+             "Больше — пиксель мельче, зона триггера крупнее. Меньше — наоборот. 1 = нейтрально.")]
+    [SerializeField, Min(0.01f)] private float spacingRatioX = 1f;
+    [SerializeField, Min(0.01f)] private float spacingRatioZ = 1f;
+
+    private float cellPitchX;
+    private float cellPitchZ;
     private Vector3 effectivePixelScale;
+    private float triggerSizeX;
+    private float triggerSizeZ;
 
     [Header("Prefab Settings")]
     [SerializeField] private GameObject pixelPrefab;
@@ -53,14 +60,18 @@ public class GameSurface : MonoBehaviour
 
         ClearChildren();
 
-        float largestDimension = Mathf.Max(rows, columns);
-        float scaleFactor = largestDimension > baselineGridSize
-            ? baselineGridSize / largestDimension
-            : 1f;
+        // Шаг сетки всегда подгоняется под фиксированный физический размер поля —
+        // rows/columns влияют только на плотность, не на общий занимаемый объём.
+        cellPitchX = fieldWorldSize.x / Mathf.Max(1, columns - 1);
+        cellPitchZ = fieldWorldSize.y / Mathf.Max(1, rows - 1);
 
-        effectiveSpacingX = spacingX * scaleFactor;
-        effectiveSpacingZ = spacingZ * scaleFactor;
-        effectivePixelScale = pixelSpawnScale * scaleFactor;
+        effectivePixelScale = new Vector3(
+            pixelSpawnScale.x * cellPitchX / spacingRatioX,
+            pixelSpawnScale.y,
+            pixelSpawnScale.z * cellPitchZ / spacingRatioZ);
+
+        triggerSizeX = cellPitchX * spacingRatioX;
+        triggerSizeZ = cellPitchZ * spacingRatioZ;
 
         pixelParent = new GameObject(PixelParentName);
         pixelParent.transform.SetParent(transform);
@@ -68,15 +79,15 @@ public class GameSurface : MonoBehaviour
         pixelParent.transform.localRotation = Quaternion.identity;
         pixelParent.transform.localScale = Vector3.one;
 
-        float totalWidth = (columns - 1) * effectiveSpacingX;
-        float totalDepth = (rows - 1) * effectiveSpacingZ;
+        float totalWidth = (columns - 1) * cellPitchX;
+        float totalDepth = (rows - 1) * cellPitchZ;
         Vector3 halfOffset = new Vector3(totalWidth / 2f, 0, totalDepth / 2f);
 
         for (int x = 0; x < columns; x++)
         {
             for (int z = 0; z < rows; z++)
             {
-                Vector3 localPos = new Vector3(x * effectiveSpacingX, 0, z * effectiveSpacingZ) - halfOffset;
+                Vector3 localPos = new Vector3(x * cellPitchX, 0, z * cellPitchZ) - halfOffset;
                 GameObject instance = Instantiate(pixelPrefab, pixelParent.transform);
 
                 instance.transform.localPosition = localPos;
@@ -86,6 +97,7 @@ public class GameSurface : MonoBehaviour
                 Pixel pixel = instance.GetComponent<Pixel>();
                 Player owner = GetPlayerForPixel(x, z, players);
                 pixel?.Init(owner);
+                pixel?.SetCaptureZoneWorldSize(triggerSizeX, triggerSizeZ);
             }
         }
 
@@ -120,7 +132,7 @@ public class GameSurface : MonoBehaviour
             CanonRotator rotator = canonInstance.GetComponent<CanonRotator>();
             if (rotator != null)
             {
-                Vector3 facingDirection = -spawnTransform.localPosition; // от угла к центру поля
+                Vector3 facingDirection = -spawnTransform.localPosition;
                 facingDirection.y = 0f;
                 rotator.SetFacingDirection(facingDirection.normalized);
                 rotator.SetPhaseByIndex(i, players.Count);
@@ -129,13 +141,14 @@ public class GameSurface : MonoBehaviour
             Canon canon = canonInstance.GetComponent<Canon>();
             canon.Init(player, canonInstance.transform.position, canonInstance.transform.rotation);
             spawnedCanons[player] = canon;
+
             Pixel masterPixel = spawnTransform.GetComponent<Pixel>();
             if (masterPixel != null)
                 masterPixel.MarkAsMasterPixel(player);
         }
 
         return true;
-        }
+    }
 
     public List<Transform> GetSpawnTransforms()
     {
@@ -152,9 +165,9 @@ public class GameSurface : MonoBehaviour
         for (int i = 0; i < 4; i++)
         {
             Pixel cornerPixel = pixels.Find(pixel =>
-            pixel != null &&
-            pixel.transform.localPosition.x == xIndices[i] * effectiveSpacingX - ((columns - 1) * effectiveSpacingX / 2f) &&
-            pixel.transform.localPosition.z == zIndices[i] * effectiveSpacingZ - ((rows - 1) * effectiveSpacingZ / 2f));
+                pixel != null &&
+                pixel.transform.localPosition.x == xIndices[i] * cellPitchX - ((columns - 1) * cellPitchX / 2f) &&
+                pixel.transform.localPosition.z == zIndices[i] * cellPitchZ - ((rows - 1) * cellPitchZ / 2f));
 
             if (cornerPixel != null)
                 spawnPoints.Add(cornerPixel.transform);
@@ -170,7 +183,6 @@ public class GameSurface : MonoBehaviour
 
         int territory = Mathf.Max(1, startingTerritorySize);
 
-        // Порядок углов совпадает с GetSpawnTransforms: 0=низ-лево, 1=низ-право, 2=верх-лево, 3=верх-право.
         int[] cornerX = { 0, columns - 1, 0, columns - 1 };
         int[] cornerZ = { 0, 0, rows - 1, rows - 1 };
 
@@ -186,7 +198,7 @@ public class GameSurface : MonoBehaviour
                 return players[i];
         }
 
-        return null; // клетка вне чьей-либо стартовой территории — нейтральная
+        return null;
     }
 
     public void ClearChildren()
@@ -209,6 +221,7 @@ public class GameSurface : MonoBehaviour
     {
         spawnedCanons.Remove(player);
     }
+
     private void DestroyGeneratedContainer(ref GameObject cachedContainer, string containerName)
     {
         GameObject container = GetGeneratedContainer(cachedContainer, containerName);

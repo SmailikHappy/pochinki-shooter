@@ -12,6 +12,10 @@ public class Bullet : MonoBehaviour
     [SerializeField, Min(0.1f)] private float maxLifetimeSeconds = 20f;
     [SerializeField, Min(1f)] private float maxDistanceFromSpawn = 50f;
 
+    [Header("Bounce Randomness")]
+    [Tooltip("Случайное отклонение угла отскока, в градусах (в обе стороны от идеального отражения).")]
+    [SerializeField, Range(0f, 5f)] private float bounceRandomAngleDegrees = 1f;
+
     private Vector3 direction;
     private float speed;
     private Rigidbody _rb;
@@ -85,9 +89,12 @@ public class Bullet : MonoBehaviour
         Vector3 normal = collision.GetContact(0).normal;
         Vector3 reflected = Vector3.Reflect(incomingVelocity, normal);
 
-        reflected.y = 0f; // прижимаем пулю к горизонтальной плоскости после отскока
+        reflected.y = 0f;
         if (reflected.sqrMagnitude <= 0.0001f)
             return;
+
+        float randomAngle = Random.Range(-bounceRandomAngleDegrees, bounceRandomAngleDegrees);
+        reflected = Quaternion.AngleAxis(randomAngle, Vector3.up) * reflected;
 
         direction = reflected.normalized;
 

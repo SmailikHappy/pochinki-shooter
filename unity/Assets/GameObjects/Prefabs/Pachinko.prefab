@@ -1117,7 +1117,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScoreZone
   zoneType: 1
-  multiplierValue: 2
+  multiplierValue: 4
 --- !u!1 &2132149917569369787
 GameObject:
   m_ObjectHideFlags: 0
