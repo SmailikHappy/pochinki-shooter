@@ -23,7 +23,7 @@ namespace Pochinki.Networking.Game
         public const int MaxSupportedPlayers = 4;
         // Increment whenever separately built clients and servers would interpret
         // replicated gameplay state differently (for example, a grid layout change).
-        public const ushort GameSchemaVersion = 5;
+        public const ushort GameSchemaVersion = 6;
 
         [Serializable]
         private sealed class ConnectionIdentityPayload

@@ -698,8 +698,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad2783689c30a174ba01e75b830a7c4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameSurface
-  rows: 15
-  columns: 15
+  rows: 50
+  columns: 50
   fieldWorldSize: {x: 29, y: 29}
   spacingRatioX: 3
   spacingRatioZ: 3
@@ -708,7 +708,7 @@ MonoBehaviour:
   canonPrefab: {fileID: 3747486295779477885, guid: 10262ab6527bf784ab0808620ea6eae4, type: 3}
   canonSpawnScale: {x: 2, y: 2, z: 2}
   canonHeightOffset: 1.5
-  startingTerritorySize: 7
+  startingTerritorySize: 23
 --- !u!4 &372330432
 Transform:
   m_ObjectHideFlags: 0
@@ -1006,7 +1006,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkManager
   NetworkManagerExpanded: 0
   NetworkConfig:
-    ProtocolVersion: 5
+    ProtocolVersion: 6
     NetworkTransport: {fileID: 727485719}
     PlayerPrefab: {fileID: 1026187611332834335, guid: 1bb4132aa69e451479a79944cdd7b537, type: 3}
     Prefabs:

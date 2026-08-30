@@ -22,8 +22,6 @@ namespace Pochinki.Networking.Game
     {
         public const byte NeutralSlot = byte.MaxValue;
         public const int MaxCounterValue = 128;
-        private const float SnapshotInitializationGraceSeconds = 5f;
-
         [SerializeField, Min(0.01f)] private float releaseShotInterval = 0.15f;
 
         private readonly NetworkList<int> counterValues = new(
@@ -517,8 +515,6 @@ namespace Pochinki.Networking.Game
             // Coalesce NetworkList Clear/Add/Full bursts and never inspect a list
             // halfway through one replicated structural update.
             yield return null;
-            float initializationDeadline =
-                Time.realtimeSinceStartup + SnapshotInitializationGraceSeconds;
 
             while (IsSpawned)
             {
@@ -530,7 +526,7 @@ namespace Pochinki.Networking.Game
                     // On a joining client the replicated match object can arrive
                     // before the Discord roster has built the local grid. Zero is
                     // not a schema in that window, so wait instead of reporting a
-                    // misleading 225/0 mismatch.
+                    // misleading server/client mismatch.
                     if (pixelOwners.Count > 0 && expectedPixels == 0)
                     {
                         yield return null;
@@ -544,8 +540,7 @@ namespace Pochinki.Networking.Game
                     bool pixelListStillFilling =
                         expectedPixels > 0 && pixelOwners.Count < expectedPixels;
 
-                    if (Time.realtimeSinceStartup < initializationDeadline &&
-                        (slotListsStillFilling || pixelListStillFilling))
+                    if (slotListsStillFilling || pixelListStillFilling)
                     {
                         yield return null;
                         continue;
@@ -680,7 +675,13 @@ namespace Pochinki.Networking.Game
                 return true;
             }
 
-            if (pixelOwners.Count != clientPixelCount)
+            if (pixelOwners.Count < clientPixelCount)
+            {
+                QueueApplySnapshot();
+                return true;
+            }
+
+            if (pixelOwners.Count > clientPixelCount)
             {
                 ReportSchemaMismatch(
                     $"GAME SCHEMA MISMATCH! Server pixels={pixelOwners.Count}, " +
