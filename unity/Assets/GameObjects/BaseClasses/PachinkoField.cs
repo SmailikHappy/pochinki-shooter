@@ -20,6 +20,9 @@ public class PachinkoField : MonoBehaviour
     [SerializeField] private PachinkoCounter counter;
 
     public Player Owner { get; private set; }
+    public PachinkoCounter Counter => counter;
+    public ScoreZone MultiplierZone => zoneMultiplier;
+
     private Canon linkedCanon;
     private bool _initialized;
     private PachinkoBall _activeBall;
@@ -38,14 +41,14 @@ public class PachinkoField : MonoBehaviour
 
     public void Initialize(Player owner, Canon canon)
     {
-        if (counter != null && linkedCanon != null)
-            counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
+        if (counter != null)
+            counter.SetFireHandler(null);
 
         Owner = owner;
         linkedCanon = canon;
 
-        if (counter != null && linkedCanon != null)
-            counter.OnBulletRequested.AddListener(linkedCanon.Fire);
+        if (counter != null)
+            counter.SetFireHandler(linkedCanon);
 
         _initialized = true;
         SpawnBall();
@@ -53,8 +56,8 @@ public class PachinkoField : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (counter != null && linkedCanon != null)
-            counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
+        if (counter != null)
+            counter.SetFireHandler(null);
     }
 
     private void SpawnBall()

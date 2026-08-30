@@ -246,7 +246,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 869978506189852445}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4d4943a0fb7ac5146b0e8365026f867c, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -472,7 +472,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1051586269448112617}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4d4943a0fb7ac5146b0e8365026f867c, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -954,7 +954,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScoreZone
   zoneType: 0
-  multiplierValue: 2
+  multiplierValue: 1
+  boostTimerFill: {fileID: 0}
 --- !u!1 &2060033683293141485
 GameObject:
   m_ObjectHideFlags: 0
@@ -1117,7 +1118,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScoreZone
   zoneType: 1
-  multiplierValue: 4
+  multiplierValue: 2
+  boostTimerFill: {fileID: 0}
 --- !u!1 &2132149917569369787
 GameObject:
   m_ObjectHideFlags: 0
@@ -1478,7 +1480,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2445622383558780875}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4d4943a0fb7ac5146b0e8365026f867c, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -2307,7 +2309,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5003165601188156871}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4d4943a0fb7ac5146b0e8365026f867c, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -2447,7 +2449,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ScoreZone
   zoneType: 2
-  multiplierValue: 2
+  multiplierValue: 1
+  boostTimerFill: {fileID: 0}
 --- !u!1 &5925902902601555802
 GameObject:
   m_ObjectHideFlags: 0
@@ -2660,7 +2663,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6134188486343223058}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4d4943a0fb7ac5146b0e8365026f867c, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -3000,7 +3003,7 @@ BoxCollider:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6565082166881599664}
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 13400000, guid: 4d4943a0fb7ac5146b0e8365026f867c, type: 2}
   m_IncludeLayers:
     serializedVersion: 2
     m_Bits: 0
@@ -4157,7 +4160,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PachinkoCounter
   startValue: 1
   maxValue: 2147483647
-  shotInterval: 0.05
   field: {fileID: 8033922611779142500}
   OnCounterChanged:
     m_PersistentCalls:
