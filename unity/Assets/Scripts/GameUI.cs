@@ -5,13 +5,17 @@ public sealed class GameUI : MonoBehaviour
 {
     [SerializeField] private Button startButton;
     [SerializeField] private Button readyButton;
-    [SerializeField] private Canvas cardButtonsCanvas;
-    [SerializeField] private GameObject cardButtonPrefab;
 
     [Header("Ability Buttons")]
     [Tooltip("Каждая пара: кнопка + способность, которую она применяет. " +
              "Новая карточка — новый ScriptableObject-ассет, без правок этого класса.")]
     [SerializeField] private AbilityButtonBinding[] abilityButtons;
+
+    [Header("Event Cards")]
+    [SerializeField] private Canvas cardButtonsCanvas;
+    [SerializeField] private GameObject cardButtonPrefab;
+    [Tooltip("Пул способностей, из которого при появлении карточки выбирается одна случайная.")]
+    [SerializeField] private PachinkoAbility[] availableAbilities;
 
     [System.Serializable]
     private struct AbilityButtonBinding
@@ -138,24 +142,27 @@ public sealed class GameUI : MonoBehaviour
 
         if (readyButton != null)
             readyButton.gameObject.SetActive(false);
-        
+
         PachinkoCounter[] pachinkoCounters = FindObjectsByType<PachinkoCounter>(FindObjectsInactive.Include);
 
         foreach (PachinkoCounter counter in pachinkoCounters)
         {
-            counter.OnEventTriggered.AddListener(() => CreateCardButton());
+            counter.OnEventTriggered.AddListener((PachinkoField sourceField) => CreateCardButton(sourceField));
         }
     }
 
-    private void CreateCardButton()
+    private void CreateCardButton(PachinkoField sourceField)
     {
         if (cardButtonsCanvas == null || cardButtonPrefab == null)
+            return;
+
+        if (availableAbilities == null || availableAbilities.Length == 0)
         {
+            Debug.LogWarning("GameUI: availableAbilities is empty, no ability to assign to the card.", this);
             return;
         }
 
-        var parentRect = cardButtonsCanvas.transform as RectTransform;
-        
+        PachinkoAbility chosenAbility = availableAbilities[Random.Range(0, availableAbilities.Length)];
 
         GameObject newButtonObj = Instantiate(cardButtonPrefab, cardButtonsCanvas.transform);
         RectTransform buttonRect = newButtonObj.GetComponent<RectTransform>();
@@ -167,10 +174,20 @@ public sealed class GameUI : MonoBehaviour
             buttonRect.anchoredPosition = Vector2.zero;
         }
 
+        TMPro.TMP_Text label = newButtonObj.GetComponentInChildren<TMPro.TMP_Text>();
+        if (label != null)
+            label.text = chosenAbility.AbilityName;
+
         Button newButton = newButtonObj.GetComponent<Button>();
         if (newButton != null)
         {
-            newButton.onClick.AddListener(() => Debug.Log("Card button clicked!"));
+            newButton.onClick.AddListener(() =>
+            {
+                // Бонус достаётся владельцу того поля, где сработала зона Event —
+                // не тому игроку, кто первым кликнул карточку.
+                chosenAbility.Apply(sourceField);
+                Destroy(newButtonObj);
+            });
         }
 
         LayoutRebuilder.ForceRebuildLayoutImmediate(cardButtonsCanvas.GetComponent<RectTransform>());

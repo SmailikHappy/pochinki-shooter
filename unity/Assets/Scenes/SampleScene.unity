@@ -2343,9 +2343,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameUI
   startButton: {fileID: 1316703559}
   readyButton: {fileID: 2097328066}
+  abilityButtons:
+  - button: {fileID: 2013402692}
+    ability: {fileID: 11400000, guid: f40ba90e4a2ac734cb68f7bc61260524, type: 2}
+  - button: {fileID: 404583963}
+    ability: {fileID: 11400000, guid: 26e4cef5f8acede48bb5e74b88bf83f3, type: 2}
   cardButtonsCanvas: {fileID: 542185695}
   cardButtonPrefab: {fileID: 719794845564821471, guid: 2413f67c411ea7345a81226935d46d45, type: 3}
-  abilityButtons: []
+  availableAbilities:
+  - {fileID: 11400000, guid: f40ba90e4a2ac734cb68f7bc61260524, type: 2}
+  - {fileID: 11400000, guid: 26e4cef5f8acede48bb5e74b88bf83f3, type: 2}
 --- !u!114 &1328887350
 MonoBehaviour:
   m_ObjectHideFlags: 0

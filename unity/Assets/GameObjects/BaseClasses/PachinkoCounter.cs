@@ -15,7 +15,7 @@ public class PachinkoCounter : MonoBehaviour
     public UnityEvent<int> OnCounterChanged;
     public UnityEvent OnBulletRequested;
     public UnityEvent OnReleaseFinished;
-    public UnityEvent OnEventTriggered;
+    public UnityEvent<PachinkoField> OnEventTriggered;
 
     private int currentValue;
     private bool isReleasing;
@@ -74,7 +74,7 @@ public class PachinkoCounter : MonoBehaviour
         if (isReleasing)
             return;
 
-        OnEventTriggered?.Invoke();
+        OnEventTriggered?.Invoke(field);
     }
 
     public void Release()

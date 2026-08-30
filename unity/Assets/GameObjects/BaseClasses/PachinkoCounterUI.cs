@@ -47,7 +47,7 @@ public class PachinkoCounterUI : MonoBehaviour
         }
     }
 
-    private void HandleEventTriggered()
+    private void HandleEventTriggered(PachinkoField sourceField)
     {
         if (_eventRoutine != null)
             StopCoroutine(_eventRoutine);
