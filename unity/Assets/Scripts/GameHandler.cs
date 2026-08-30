@@ -51,9 +51,19 @@ public sealed class GameHandler : MonoBehaviour
 
     private void Start()
     {
-        // Covers unusual script execution orders and scene reloads. Reapplying
-        // an unchanged roster is intentionally a no-op for generated gameplay.
-        DiscordHandler.Instance?.ApplyRosterToGame();
+        // Do not start gameplay automatically on scene load. The roster can be
+        // loaded and updated without launching the match until the user presses
+        // the explicit start button.
+    }
+
+    public void StartGame()
+    {
+        if (gameState == GameState.InProgress)
+        {
+            return;
+        }
+
+        RebuildGameplay();
     }
 
     public void ApplyRoster(IReadOnlyList<DiscordUser> roster)
@@ -91,7 +101,7 @@ public sealed class GameHandler : MonoBehaviour
             activeRosterIds.Add(user.UniqueId);
         }
 
-        if (rosterChanged)
+        if (rosterChanged && gameState == GameState.InProgress)
         {
             RebuildGameplay();
         }
