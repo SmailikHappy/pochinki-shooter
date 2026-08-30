@@ -17,7 +17,10 @@ public class GameOverUI : MonoBehaviour
 
     private void OnDestroy()
     {
-        GameHandler.instance.onPlayerEliminated -= HandlePlayerEliminated;
+        if (GameHandler.instance != null)
+        {
+            GameHandler.instance.onPlayerEliminated -= HandlePlayerEliminated;
+        }
     }
 
     private void HandlePlayerEliminated(Player eliminatedPlayer)

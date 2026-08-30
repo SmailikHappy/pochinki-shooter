@@ -5,6 +5,8 @@ public sealed class GameUI : MonoBehaviour
 {
     [SerializeField] private Button startButton;
     [SerializeField] private Button readyButton;
+    [SerializeField] private Canvas cardButtonsCanvas;
+    [SerializeField] private GameObject cardButtonPrefab;
 
     private Player boundPlayer;
 
@@ -90,7 +92,7 @@ public sealed class GameUI : MonoBehaviour
         }
     }
 
-    public void HideLobbyButtons()
+    public void StartGame()
     {
         if (startButton != null)
         {
@@ -101,5 +103,41 @@ public sealed class GameUI : MonoBehaviour
         {
             readyButton.gameObject.SetActive(false);
         }
+        
+        PachinkoCounter[] pachinkoCounters = FindObjectsByType<PachinkoCounter>(FindObjectsInactive.Include);
+
+        foreach (PachinkoCounter counter in pachinkoCounters)
+        {
+            counter.OnEventTriggered.AddListener(() => CreateCardButton());
+        }
+    }
+
+    private void CreateCardButton()
+    {
+        if (cardButtonsCanvas == null || cardButtonPrefab == null)
+        {
+            return;
+        }
+
+        var parentRect = cardButtonsCanvas.transform as RectTransform;
+        
+
+        GameObject newButtonObj = Instantiate(cardButtonPrefab, cardButtonsCanvas.transform);
+        RectTransform buttonRect = newButtonObj.GetComponent<RectTransform>();
+        if (buttonRect != null)
+        {
+            buttonRect.anchorMin = new Vector2(0f, 0.5f);
+            buttonRect.anchorMax = new Vector2(0f, 0.5f);
+            buttonRect.pivot = new Vector2(0.5f, 0.5f);
+            buttonRect.anchoredPosition = Vector2.zero;
+        }
+
+        Button newButton = newButtonObj.GetComponent<Button>();
+        if (newButton != null)
+        {
+            newButton.onClick.AddListener(() => Debug.Log("Card button clicked!"));
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(cardButtonsCanvas.GetComponent<RectTransform>());
     }
 }
