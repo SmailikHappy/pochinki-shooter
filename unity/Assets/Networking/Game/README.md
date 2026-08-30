@@ -19,3 +19,5 @@ Both targets in a pair must be rebuilt from the same commit. Command-line automa
 Each build recreates its exact output directory first, so old Development files cannot leak into Release output.
 
 The regular Pixel/Pachinko/Canon prefabs remain the visual authoring source. Production Web builds batch Pixel visuals and disable physics that is irrelevant to the current network role; the logical objects and their Inspector-facing components remain intact.
+
+Pixel ownership is server-authoritative and can grow only through an orthogonal shared side. Shots may still travel through the authored visual gaps, but a farther hit cannot create a disconnected territory island.

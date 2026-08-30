@@ -737,7 +737,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3f247a94e64e4d3f97165a16c9a91534, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::GameSurfaceRenderer
 --- !u!1 &410087039
 GameObject:

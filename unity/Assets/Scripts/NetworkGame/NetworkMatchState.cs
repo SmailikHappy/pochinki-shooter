@@ -218,6 +218,15 @@ namespace Pochinki.Networking.Game
                 return false;
             }
 
+            // Territory grows through shared sides only. Physical Pixel triggers
+            // intentionally match the smaller visible cubes and therefore leave
+            // gaps; a shot that slips through one of those gaps must not create
+            // a disconnected island farther inside the neutral field.
+            if (!HasOrthogonalOwnedNeighbour(pixelIndex, shooterSlot))
+            {
+                return false;
+            }
+
             pixelOwners[pixelIndex] = (byte)shooterSlot;
 
             if (GameHandler.instance != null &&
@@ -230,6 +239,31 @@ namespace Pochinki.Networking.Game
             }
 
             return true;
+        }
+
+        private bool HasOrthogonalOwnedNeighbour(int pixelIndex, int shooterSlot)
+        {
+            GameSurface surface = GameHandler.instance?.Surface;
+            if (surface == null)
+            {
+                return false;
+            }
+
+            int rows = surface.Rows;
+            int columns = surface.Columns;
+            if (rows <= 0 || columns <= 0 || pixelOwners.Count != rows * columns)
+            {
+                return false;
+            }
+
+            int x = pixelIndex / rows;
+            int z = pixelIndex % rows;
+            byte owner = (byte)shooterSlot;
+
+            return (x > 0 && pixelOwners[pixelIndex - rows] == owner) ||
+                (x + 1 < columns && pixelOwners[pixelIndex + rows] == owner) ||
+                (z > 0 && pixelOwners[pixelIndex - 1] == owner) ||
+                (z + 1 < rows && pixelOwners[pixelIndex + 1] == owner);
         }
 
         public bool IsSlotEliminated(int slot)

@@ -44,6 +44,8 @@ public class GameSurface : MonoBehaviour
 
     private readonly Dictionary<Player, Canon> spawnedCanons = new();
     private readonly List<Pixel> spawnedPixels = new();
+    public int Rows => Mathf.Max(1, rows);
+    public int Columns => Mathf.Max(1, columns);
     public IReadOnlyDictionary<Player, Canon> SpawnedCanons => spawnedCanons;
     public IReadOnlyList<Pixel> SpawnedPixels => spawnedPixels;
 
