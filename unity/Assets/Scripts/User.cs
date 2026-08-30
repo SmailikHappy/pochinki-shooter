@@ -1,10 +1,21 @@
 // User.cs
 public class User
 {
-    public string UniqueId { get; }
+    public ulong UniqueId { get; }
+    static ulong _nextUniqueId = 1;
 
-    public User(string uniqueId)
+    public User()
     {
-        UniqueId = uniqueId ?? string.Empty;
+        UniqueId = GetUniqueId();
+    }
+
+    static ulong GetUniqueId()
+    {
+        return _nextUniqueId++;
+    }
+
+    public virtual string GetDisplayName()
+    {
+        return $"User {UniqueId}";
     }
 }

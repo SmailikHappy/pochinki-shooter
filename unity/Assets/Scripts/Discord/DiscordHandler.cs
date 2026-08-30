@@ -57,12 +57,12 @@ public sealed class DiscordHandler : MonoBehaviour
     private void Start()
     {
 #if UNITY_EDITOR
-        const string editorLocalId = "editor-local";
-        var local = new DiscordUser(editorLocalId, "EditorTester", isSelf: true);
-        LocalUserId = local.UniqueId;
-        _users[local.UniqueId] = local;
-        ApplyRosterToGame();
-        GameHandler.instance?.onUserJoined?.Invoke(local);
+        // const string editorLocalId = "editor-local";
+        // var local = new DiscordUser(editorLocalId, "EditorTester", isSelf: true);
+        // LocalUserId = local.UniqueId;
+        // _users[local.UniqueId] = local;
+        // ApplyRosterToGame();
+        // GameHandler.instance?.onUserJoined?.Invoke(local);
 #endif
     }
 
@@ -148,7 +148,6 @@ public sealed class DiscordHandler : MonoBehaviour
     public void ApplyRosterToGame()
     {
         var roster = new List<DiscordUser>(_users.Values);
-        GameHandler.instance?.ApplyRoster(roster);
     }
 
     public void SendLocalInput(float mouseX, float mouseY)

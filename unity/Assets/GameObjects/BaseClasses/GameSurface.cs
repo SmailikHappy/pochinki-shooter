@@ -1,11 +1,9 @@
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
-public class GameSurface : MonoBehaviour
+public class GameSurface : NetworkBehaviour
 {
-    private const string PixelParentName = "PixelParent";
-    private const string CanonParentName = "CanonParent";
-
     [Header("Grid Settings")]
     [SerializeField] private int rows = 5;
     [SerializeField] private int columns = 5;
@@ -15,17 +13,22 @@ public class GameSurface : MonoBehaviour
     [Header("Prefab Settings")]
     [SerializeField] private GameObject pixelPrefab;
     [SerializeField] private Vector3 pixelSpawnScale = new Vector3(1f, 1f, 1f);
+    [SerializeField] private GameObject pixelParent;
     [SerializeField] private GameObject canonPrefab;
     [SerializeField] private Vector3 canonSpawnScale = new Vector3(1f, 1f, 1f);
-
-    private GameObject pixelParent;
-    private GameObject canonParent;
+    [SerializeField] private GameObject canonParent;
 
     private readonly Dictionary<Player, Canon> spawnedCanons = new();
     public IReadOnlyDictionary<Player, Canon> SpawnedCanons => spawnedCanons;
 
     public bool SpawnGrid(IReadOnlyList<Player> players)
     {
+        if (!IsServer && Application.isPlaying)
+        {
+            Debug.LogError("GameSurface: SpawnGrid can only be called on the server.", this);
+            return false;
+        }
+
         if (pixelPrefab == null)
         {
             Debug.LogError("GameSurface: pixelPrefab is not assigned.", this);
@@ -41,12 +44,6 @@ public class GameSurface : MonoBehaviour
 
         ClearChildren();
 
-        pixelParent = new GameObject(PixelParentName);
-        pixelParent.transform.SetParent(transform);
-        pixelParent.transform.localPosition = Vector3.zero;
-        pixelParent.transform.localRotation = Quaternion.identity;
-        pixelParent.transform.localScale = Vector3.one;
-
         float totalWidth = (columns - 1) * spacingX;
         float totalDepth = (rows - 1) * spacingZ;
         Vector3 halfOffset = new Vector3(totalWidth / 2f, 0, totalDepth / 2f);
@@ -61,18 +58,16 @@ public class GameSurface : MonoBehaviour
                 instance.transform.localPosition = localPos;
                 instance.transform.localRotation = Quaternion.identity;
                 instance.transform.localScale = pixelSpawnScale;
+                instance.transform.SetParent(pixelParent.transform, worldPositionStays: true);
 
                 Pixel pixel = instance.GetComponent<Pixel>();
                 Player owner = GetPlayerForPixel(x, z, players);
-                pixel?.Init(owner);
+                pixel.Init(owner);
+
+                NetworkObject netObj = instance.GetComponent<NetworkObject>();
+                netObj.Spawn();
             }
         }
-
-        canonParent = new GameObject(CanonParentName);
-        canonParent.transform.SetParent(transform);
-        canonParent.transform.localPosition = Vector3.zero;
-        canonParent.transform.localRotation = Quaternion.identity;
-        canonParent.transform.localScale = Vector3.one;
 
         List<Transform> cornerSpawns = GetSpawnTransforms();
 
@@ -92,6 +87,7 @@ public class GameSurface : MonoBehaviour
             canonInstance.transform.localPosition = spawnTransform.localPosition;
             canonInstance.transform.localRotation = spawnTransform.localRotation;
             canonInstance.transform.localScale = canonSpawnScale;
+            canonInstance.transform.SetParent(canonParent.transform, worldPositionStays: true);
 
             CanonRotator rotator = canonInstance.GetComponent<CanonRotator>();
             if (rotator != null)
@@ -105,6 +101,10 @@ public class GameSurface : MonoBehaviour
             Canon canon = canonInstance.GetComponent<Canon>();
             canon.Init(player, canonInstance.transform.position, canonInstance.transform.rotation);
             spawnedCanons[player] = canon;
+
+
+            NetworkObject netObj = canonInstance.GetComponent<NetworkObject>();
+            netObj.Spawn(); // registers with all connected clients
         }
 
         return true;
@@ -113,11 +113,8 @@ public class GameSurface : MonoBehaviour
     public List<Transform> GetSpawnTransforms()
     {
         List<Transform> spawnPoints = new();
-        GameObject generatedPixelParent = GetGeneratedContainer(pixelParent, PixelParentName);
-        if (generatedPixelParent == null)
-            return spawnPoints;
 
-        List<Pixel> pixels = new(generatedPixelParent.GetComponentsInChildren<Pixel>(false));
+        List<Pixel> pixels = new(pixelParent.GetComponentsInChildren<Pixel>(false));
 
         int[] xIndices = { 0, columns - 1, 0, columns - 1 };
         int[] zIndices = { 0, 0, rows - 1, rows - 1 };
@@ -163,8 +160,8 @@ public class GameSurface : MonoBehaviour
 
     public void ClearChildren()
     {
-        DestroyGeneratedContainer(ref pixelParent, PixelParentName);
-        DestroyGeneratedContainer(ref canonParent, CanonParentName);
+        DestroyGeneratedContainer(pixelParent);
+        DestroyGeneratedContainer(canonParent);
         spawnedCanons.Clear();
     }
 
@@ -177,19 +174,20 @@ public class GameSurface : MonoBehaviour
         return child != null ? child.gameObject : null;
     }
 
-    private void DestroyGeneratedContainer(ref GameObject cachedContainer, string containerName)
+    private void DestroyGeneratedContainer(GameObject container)
     {
-        GameObject container = GetGeneratedContainer(cachedContainer, containerName);
-        cachedContainer = null;
-
-        if (container == null)
-            return;
-
-        container.SetActive(false);
-
-        if (Application.isPlaying)
-            Destroy(container);
-        else
-            DestroyImmediate(container);
+        for (int i = container.transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = container.transform.GetChild(i);
+            if (child != null)
+            {
+                NetworkObject netObj = child.GetComponent<NetworkObject>();
+                if (netObj != null && netObj.IsSpawned)
+                {
+                    netObj.Despawn();
+                }
+                Destroy(child.gameObject);
+            }
+        }
     }
 }

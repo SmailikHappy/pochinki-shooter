@@ -7,7 +7,7 @@ public sealed class DiscordUser : User
     public bool IsSelf;
 
     public DiscordUser(string discordUserId, string username, bool isSelf)
-        : base(discordUserId)
+        : base()
     {
         Username = username;
         IsSelf = isSelf;
