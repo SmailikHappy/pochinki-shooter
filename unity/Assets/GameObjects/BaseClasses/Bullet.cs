@@ -46,7 +46,6 @@ public class Bullet : MonoBehaviour
 
     public void Init(Player owner, Vector3 direction, float speed, float scale)
     {
-        Debug.Log($"Bullet Init: Direction: {direction}, Speed: {speed}, Scale: {scale}, Owner: {owner.user.UniqueId}");
         GetComponent<PlayerOwnable>().SetOwner(owner);
         this.direction = direction.sqrMagnitude > 0f ? direction.normalized : transform.right;
         this.speed = Mathf.Max(0f, speed);

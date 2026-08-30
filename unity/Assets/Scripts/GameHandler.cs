@@ -335,10 +335,18 @@ public sealed class GameHandler : MonoBehaviour
 
     public Action<Player> onPlayerEliminated;
 
+    public bool IsLastPlayerStanding()
+    {
+        return gameSurface != null && gameSurface.SpawnedCanons.Count == 1;
+    }
+
     public void NotifyMasterPixelCaptured(Player eliminatedPlayer)
     {
         if (eliminatedPlayer == null)
+        {
+            Debug.LogWarning("NotifyMasterPixelCaptured called with null eliminatedPlayer.", this);   
             return;
+        }
 
         EliminatePlayer(eliminatedPlayer);
         onPlayerEliminated?.Invoke(eliminatedPlayer);

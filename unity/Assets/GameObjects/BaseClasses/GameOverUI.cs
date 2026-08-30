@@ -3,22 +3,21 @@ using TMPro;
 
 public class GameOverUI : MonoBehaviour
 {
-    [SerializeField] private GameObject gameOverPanel;
-    [SerializeField] private TMP_Text gameOverText;
+    [SerializeField] private GameObject gameOverText;
 
-    private void OnEnable()
+    private void Awake()
     {
-        if (GameHandler.instance != null)
-            GameHandler.instance.onPlayerEliminated += HandlePlayerEliminated;
-
-        if (gameOverPanel != null)
-            gameOverPanel.SetActive(false);
+        gameOverText.SetActive(false);
     }
 
-    private void OnDisable()
+    private void Start()
     {
-        if (GameHandler.instance != null)
-            GameHandler.instance.onPlayerEliminated -= HandlePlayerEliminated;
+        GameHandler.instance.onPlayerEliminated += HandlePlayerEliminated;
+    }
+
+    private void OnDestroy()
+    {
+        GameHandler.instance.onPlayerEliminated -= HandlePlayerEliminated;
     }
 
     private void HandlePlayerEliminated(Player eliminatedPlayer)
@@ -29,13 +28,13 @@ public class GameOverUI : MonoBehaviour
         bool isLocalPlayer = !string.IsNullOrEmpty(eliminatedId) &&
             string.Equals(eliminatedId, localId, System.StringComparison.Ordinal);
 
-        if (!isLocalPlayer)
+        bool lastPlayerStanding = GameHandler.instance.IsLastPlayerStanding();
+
+        if (!isLocalPlayer && !lastPlayerStanding)
             return; // серверная часть решает исход матча целиком — здесь только личный экран поражения
 
-        if (gameOverPanel != null)
-            gameOverPanel.SetActive(true);
+        gameOverText.SetActive(true);
 
-        if (gameOverText != null)
-            gameOverText.text = "Game Over";
+        gameOverText.GetComponent<TMP_Text>().text = "Game Over";
     }
 }
