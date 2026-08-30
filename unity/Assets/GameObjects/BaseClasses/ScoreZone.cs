@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum ScoreZoneType { R, Multiplier }
+public enum ScoreZoneType { R, Multiplier, Event }
 
 [RequireComponent(typeof(Collider))]
 public class ScoreZone : MonoBehaviour

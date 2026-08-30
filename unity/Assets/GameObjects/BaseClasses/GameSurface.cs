@@ -11,12 +11,24 @@ public class GameSurface : MonoBehaviour
     [SerializeField] private int columns = 5;
     [SerializeField] private float spacingX = 2f;
     [SerializeField] private float spacingZ = 2f;
+    [Tooltip("Размер сетки (по большей стороне), при котором spacingX/Z и Pixel Spawn Scale берутся как есть, без уменьшения. Больше baseline — сетка масштабируется вниз пропорционально.")]
+    [SerializeField, Min(1)] private int baselineGridSize = 15;
+
+    private float effectiveSpacingX;
+    private float effectiveSpacingZ;
+    private Vector3 effectivePixelScale;
 
     [Header("Prefab Settings")]
     [SerializeField] private GameObject pixelPrefab;
     [SerializeField] private Vector3 pixelSpawnScale = new Vector3(1f, 1f, 1f);
     [SerializeField] private GameObject canonPrefab;
     [SerializeField] private Vector3 canonSpawnScale = new Vector3(1f, 1f, 1f);
+    [Tooltip("Смещение пушки по Y относительно её пикселя — чтобы стоять сверху, а не внутри столбика.")]
+    [SerializeField] private float canonHeightOffset = 1.5f;
+
+    [Header("Territory Preset")]
+    [Tooltip("Размер стартовой территории игрока вокруг его угла, в клетках (3 = квадрат 3x3).")]
+    [SerializeField, Min(1)] private int startingTerritorySize = 3;
 
     private GameObject pixelParent;
     private GameObject canonParent;
@@ -41,26 +53,35 @@ public class GameSurface : MonoBehaviour
 
         ClearChildren();
 
+        float largestDimension = Mathf.Max(rows, columns);
+        float scaleFactor = largestDimension > baselineGridSize
+            ? baselineGridSize / largestDimension
+            : 1f;
+
+        effectiveSpacingX = spacingX * scaleFactor;
+        effectiveSpacingZ = spacingZ * scaleFactor;
+        effectivePixelScale = pixelSpawnScale * scaleFactor;
+
         pixelParent = new GameObject(PixelParentName);
         pixelParent.transform.SetParent(transform);
         pixelParent.transform.localPosition = Vector3.zero;
         pixelParent.transform.localRotation = Quaternion.identity;
         pixelParent.transform.localScale = Vector3.one;
 
-        float totalWidth = (columns - 1) * spacingX;
-        float totalDepth = (rows - 1) * spacingZ;
+        float totalWidth = (columns - 1) * effectiveSpacingX;
+        float totalDepth = (rows - 1) * effectiveSpacingZ;
         Vector3 halfOffset = new Vector3(totalWidth / 2f, 0, totalDepth / 2f);
 
         for (int x = 0; x < columns; x++)
         {
             for (int z = 0; z < rows; z++)
             {
-                Vector3 localPos = new Vector3(x * spacingX, 0, z * spacingZ) - halfOffset;
+                Vector3 localPos = new Vector3(x * effectiveSpacingX, 0, z * effectiveSpacingZ) - halfOffset;
                 GameObject instance = Instantiate(pixelPrefab, pixelParent.transform);
 
                 instance.transform.localPosition = localPos;
                 instance.transform.localRotation = Quaternion.identity;
-                instance.transform.localScale = pixelSpawnScale;
+                instance.transform.localScale = effectivePixelScale;
 
                 Pixel pixel = instance.GetComponent<Pixel>();
                 Player owner = GetPlayerForPixel(x, z, players);
@@ -89,7 +110,10 @@ public class GameSurface : MonoBehaviour
             Transform spawnTransform = cornerSpawns[i];
             GameObject canonInstance = Instantiate(canonPrefab, canonParent.transform);
 
-            canonInstance.transform.localPosition = spawnTransform.localPosition;
+            Vector3 canonLocalPosition = spawnTransform.localPosition;
+            canonLocalPosition.y += canonHeightOffset;
+            canonInstance.transform.localPosition = canonLocalPosition;
+
             canonInstance.transform.localRotation = spawnTransform.localRotation;
             canonInstance.transform.localScale = canonSpawnScale;
 
@@ -105,6 +129,9 @@ public class GameSurface : MonoBehaviour
             Canon canon = canonInstance.GetComponent<Canon>();
             canon.Init(player, canonInstance.transform.position, canonInstance.transform.rotation);
             spawnedCanons[player] = canon;
+            Pixel masterPixel = spawnTransform.GetComponent<Pixel>();
+            if (masterPixel != null)
+                masterPixel.MarkAsMasterPixel(player);
         }
 
         return true;
@@ -125,9 +152,9 @@ public class GameSurface : MonoBehaviour
         for (int i = 0; i < 4; i++)
         {
             Pixel cornerPixel = pixels.Find(pixel =>
-                pixel != null &&
-                pixel.transform.localPosition.x == xIndices[i] * spacingX - ((columns - 1) * spacingX / 2f) &&
-                pixel.transform.localPosition.z == zIndices[i] * spacingZ - ((rows - 1) * spacingZ / 2f));
+            pixel != null &&
+            pixel.transform.localPosition.x == xIndices[i] * effectiveSpacingX - ((columns - 1) * effectiveSpacingX / 2f) &&
+            pixel.transform.localPosition.z == zIndices[i] * effectiveSpacingZ - ((rows - 1) * effectiveSpacingZ / 2f));
 
             if (cornerPixel != null)
                 spawnPoints.Add(cornerPixel.transform);
@@ -141,24 +168,25 @@ public class GameSurface : MonoBehaviour
         if (players == null || players.Count == 0)
             return null;
 
-        int playerCount = Mathf.Min(players.Count, 4);
-        int halfColumns = Mathf.Max(1, Mathf.CeilToInt(columns / 2f));
-        int halfRows = Mathf.Max(1, Mathf.CeilToInt(rows / 2f));
+        int territory = Mathf.Max(1, startingTerritorySize);
 
-        int playerIndex = 0;
+        // Порядок углов совпадает с GetSpawnTransforms: 0=низ-лево, 1=низ-право, 2=верх-лево, 3=верх-право.
+        int[] cornerX = { 0, columns - 1, 0, columns - 1 };
+        int[] cornerZ = { 0, 0, rows - 1, rows - 1 };
 
-        if (z >= halfRows)
+        for (int i = 0; i < players.Count && i < 4; i++)
         {
-            playerIndex += 2;
+            if (players[i] == null)
+                continue;
+
+            bool withinX = Mathf.Abs(x - cornerX[i]) < territory;
+            bool withinZ = Mathf.Abs(z - cornerZ[i]) < territory;
+
+            if (withinX && withinZ)
+                return players[i];
         }
 
-        if (x >= halfColumns)
-        {
-            playerIndex += 1;
-        }
-
-        playerIndex = Mathf.Clamp(playerIndex, 0, playerCount - 1);
-        return players[playerIndex];
+        return null; // клетка вне чьей-либо стартовой территории — нейтральная
     }
 
     public void ClearChildren()
@@ -177,6 +205,10 @@ public class GameSurface : MonoBehaviour
         return child != null ? child.gameObject : null;
     }
 
+    public void RemoveCanon(Player player)
+    {
+        spawnedCanons.Remove(player);
+    }
     private void DestroyGeneratedContainer(ref GameObject cachedContainer, string containerName)
     {
         GameObject container = GetGeneratedContainer(cachedContainer, containerName);

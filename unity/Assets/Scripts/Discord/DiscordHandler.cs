@@ -14,10 +14,10 @@ public sealed class DiscordHandler : MonoBehaviour
 
     private readonly Dictionary<string, DiscordUser> _users = new(StringComparer.Ordinal);
 
-#if UNITY_WEBGL && !UNITY_EDITOR
-    [DllImport("__Internal")]
-    private static extern void PochinkiSendInputJson(string json);
-#endif
+    #if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        private static extern void PochinkiSendInputJson(string json);
+    #endif
 
     [Serializable]
     private sealed class ParticipantJson
@@ -54,17 +54,55 @@ public sealed class DiscordHandler : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    public void SetLocalUserIdForDebug(string userId)
+    {
+        LocalUserId = userId;
+    }
+
+    #if UNITY_EDITOR
+    private string[] _debugPlayerIds;
+    #endif
+
     private void Start()
     {
-#if UNITY_EDITOR
-        const string editorLocalId = "editor-local";
-        var local = new DiscordUser(editorLocalId, "EditorTester", isSelf: true);
-        LocalUserId = local.UniqueId;
-        _users[local.UniqueId] = local;
+    #if UNITY_EDITOR
+        const int debugPlayerCount = 4;
+        _debugPlayerIds = new string[debugPlayerCount];
+
+        for (int i = 0; i < debugPlayerCount; i++)
+        {
+            string id = System.Guid.NewGuid().ToString("N");
+            _debugPlayerIds[i] = id;
+
+            var user = new DiscordUser(id, $"EditorTester{i}", isSelf: i == 0);
+            _users[id] = user;
+        }
+
+        LocalUserId = _debugPlayerIds[0];
         ApplyRosterToGame();
-        GameHandler.instance?.onUserJoined?.Invoke(local);
-#endif
+
+        foreach (var user in _users.Values)
+            GameHandler.instance?.onUserJoined?.Invoke(user);
+    #endif
     }
+
+    #if UNITY_EDITOR
+    private void Update()
+    {
+        if (_debugPlayerIds == null)
+            return;
+
+        for (int i = 0; i < _debugPlayerIds.Length; i++)
+        {
+            UnityEngine.InputSystem.Key key = UnityEngine.InputSystem.Key.Digit1 + i;
+            if (UnityEngine.InputSystem.Keyboard.current[key].wasPressedThisFrame)
+            {
+                SetLocalUserIdForDebug(_debugPlayerIds[i]);
+                GameHandler.instance?.RefreshInputOwnership();
+            }
+        }
+    }
+    #endif
 
     // Called directly by the WebGL template through Unity SendMessage.
     [Preserve]

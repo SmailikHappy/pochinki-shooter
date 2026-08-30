@@ -16,6 +16,7 @@ public class PachinkoField : MonoBehaviour
     [Header("Zones")]
     [SerializeField] private ScoreZone zoneR;
     [SerializeField] private ScoreZone zoneMultiplier;
+    [SerializeField] private ScoreZone zoneEvent;
     [SerializeField] private PachinkoCounter counter;
 
     public Player Owner { get; private set; }
@@ -88,6 +89,7 @@ public class PachinkoField : MonoBehaviour
     {
         if (zoneR != null) zoneR.SetActive(active);
         if (zoneMultiplier != null) zoneMultiplier.SetActive(active);
+        if (zoneEvent != null) zoneEvent.SetActive(active);
     }
 
     public void OnBallScored(ScoreZone zone, PachinkoBall ball)
@@ -112,6 +114,10 @@ public class PachinkoField : MonoBehaviour
 
             case ScoreZoneType.Multiplier:
                 counter.Multiply(Mathf.RoundToInt(zone.MultiplierValue));
+                break;
+
+            case ScoreZoneType.Event:
+                counter.TriggerEvent();
                 break;
         }
 

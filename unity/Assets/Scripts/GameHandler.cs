@@ -327,6 +327,33 @@ public sealed class GameHandler : MonoBehaviour
         spawnedFieldObjects.Clear();
     }
 
+    public Action<Player> onPlayerEliminated;
+
+    public void NotifyMasterPixelCaptured(Player eliminatedPlayer)
+    {
+        if (eliminatedPlayer == null)
+            return;
+
+        EliminatePlayer(eliminatedPlayer);
+        onPlayerEliminated?.Invoke(eliminatedPlayer);
+    }
+
+    private void EliminatePlayer(Player eliminatedPlayer)
+    {
+        if (gameSurface == null)
+            return;
+
+        if (gameSurface.SpawnedCanons.TryGetValue(eliminatedPlayer, out Canon canon) && canon != null)
+            Destroy(canon.gameObject);
+
+        gameSurface.RemoveCanon(eliminatedPlayer);
+    }
+
+    public void RefreshInputOwnership()
+    {
+        RefreshCanonInputOwnership();
+    }
+
     private void RefreshCanonInputOwnership()
     {
         if (gameSurface == null)

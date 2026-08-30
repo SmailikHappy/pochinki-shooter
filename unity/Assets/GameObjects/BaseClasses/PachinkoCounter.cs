@@ -7,7 +7,7 @@ public class PachinkoCounter : MonoBehaviour
 {
     [Header("Counter")]
     [SerializeField] private int startValue = 1;
-    [SerializeField, Min(1)] private int maxValue = 64;
+    [SerializeField, Min(1)] private int maxValue = 2147483647;
 
     [Tooltip("Задержка между каждым выпускаемым выстрелом.")]
     [SerializeField] private float shotInterval = 0.15f;
@@ -109,6 +109,19 @@ public class PachinkoCounter : MonoBehaviour
         OnReleaseFinished?.Invoke();
     }
 
+    public UnityEvent OnEventTriggered;
+
+    /// <summary>
+    /// Попадание шарика в Event-зону. Не меняет currentValue — только сигнал
+    /// для UI показать временную надпись поверх текущего числа.
+    /// </summary>
+    public void TriggerEvent()
+    {
+        if (isReleasing)
+            return;
+
+        OnEventTriggered?.Invoke();
+    }
 
     private void NotifyCounterChanged()
     {
