@@ -51,16 +51,22 @@ namespace Pochinki.Networking.Game
             playerSlot.OnValueChanged += HandleSlotChanged;
 
             if (IsServer)
-            {
                 playerSlot.Value = configuredSlot;
-                bullet.BeginServerNetworkSimulation(configuredDirection, configuredSpeed);
-            }
 
             QueueOwnerBinding();
         }
 
+        protected override void OnNetworkPostSpawn()
+        {
+            bullet.SetNetworkPhysicsAuthority(IsServer);
+
+            if (IsServer)
+                bullet.BeginServerNetworkSimulation(configuredDirection, configuredSpeed);
+        }
+
         public override void OnNetworkDespawn()
         {
+            bullet.SetNetworkPhysicsAuthority(false);
             playerSlot.OnValueChanged -= HandleSlotChanged;
 
             if (bindRoutine != null)

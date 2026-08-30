@@ -233,11 +233,18 @@ namespace Pochinki.Networking.Game.Editor
             GetOrAdd<NetworkObject>(matchStateObject);
             GetOrAdd<NetworkMatchState>(matchStateObject);
 
-            GameOverUI gameOverUI = Object.FindFirstObjectByType<GameOverUI>(FindObjectsInactive.Include);
+            GameOverUI gameOverUI = Object.FindAnyObjectByType<GameOverUI>(FindObjectsInactive.Include);
             if (gameOverUI != null)
             {
                 GetOrAdd<CanvasGroup>(gameOverUI.gameObject);
                 EditorUtility.SetDirty(gameOverUI.gameObject);
+            }
+
+            GameSurface gameSurface = Object.FindAnyObjectByType<GameSurface>(FindObjectsInactive.Include);
+            if (gameSurface != null)
+            {
+                GetOrAdd<GameSurfaceRenderer>(gameSurface.gameObject);
+                EditorUtility.SetDirty(gameSurface.gameObject);
             }
 
             transport.UseWebSockets = true;

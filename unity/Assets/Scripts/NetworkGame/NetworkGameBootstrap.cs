@@ -102,6 +102,14 @@ namespace Pochinki.Networking.Game
             networkManager = GetComponent<NetworkManager>();
             transport = GetComponent<UnityTransport>();
 
+#if !UNITY_EDITOR && !DEVELOPMENT_BUILD
+            // Release players do not need NGO profiling samples or routine network logs.
+            // Errors remain enabled so production connection failures stay diagnosable.
+            networkManager.NetworkConfig.EnableNetworkLogs = false;
+            networkManager.NetworkConfig.NetworkProfilingMetrics = false;
+            networkManager.LogLevel = LogLevel.Error;
+#endif
+
             // NGO validates this in both directions before gameplay state is accepted.
             // Unlike an extra JSON field, this also protects a new client from an old
             // server that does not yet know how to validate gameSchemaVersion itself.

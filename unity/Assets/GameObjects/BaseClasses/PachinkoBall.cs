@@ -15,7 +15,9 @@ public class PachinkoBall : MonoBehaviour
     [SerializeField, Min(1f)] private float maxDistanceFromSpawn = 10f;
 
     private Rigidbody _rb;
+    private Collider[] _physicsColliders;
     private NetworkPachinkoBall _networkBall;
+    private bool _usesNetworkSimulation;
     private bool _consumed;
     private bool _initialized;
     private Vector3 _spawnPosition;
@@ -23,13 +25,23 @@ public class PachinkoBall : MonoBehaviour
 
     private void Awake()
     {
+        Pochinki.WebRuntimePerformance.OptimizeMassRenderers(gameObject);
+
         _rb = GetComponent<Rigidbody>();
+        _physicsColliders = GetComponentsInChildren<Collider>(true);
         _networkBall = GetComponent<NetworkPachinkoBall>();
+        _usesNetworkSimulation = _networkBall != null;
         _rb.useGravity = false;
+
+        // Network prefabs must stay inert between Instantiate and NGO spawn.
+        // The final owner role is applied from OnNetworkPostSpawn, after
+        // NetworkRigidbody has completed its own spawn callback.
+        if (_networkBall != null)
+            SetNetworkPhysicsAuthority(false);
     }
 
     public bool IsPersistentNetworkBall => _networkBall != null && _networkBall.IsSpawned;
-    public bool HasSimulationAuthority => !IsPersistentNetworkBall || _networkBall.HasPhysicsAuthority;
+    public bool HasSimulationAuthority => !_usesNetworkSimulation || _networkBall.HasPhysicsAuthority;
 
     public void Initialize(PachinkoField ownerField, bool resetAndLaunch = true)
     {
@@ -39,10 +51,13 @@ public class PachinkoBall : MonoBehaviour
 
         ApplyOwnerColor();
 
-        if (!IsPersistentNetworkBall)
-        {
-            _networkBall?.PrepareStandaloneSimulation();
-        }
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
+        _usesNetworkSimulation = _networkBall != null &&
+            (_networkBall.IsSpawned ||
+                (bootstrap != null && bootstrap.ControlsGameplayRoster));
+
+        if (!_usesNetworkSimulation)
+            SetStandalonePhysicsActive();
 
         if (resetAndLaunch && HasSimulationAuthority)
         {
@@ -174,6 +189,44 @@ public class PachinkoBall : MonoBehaviour
 
         field = null;
         _initialized = false;
+    }
+
+    public void SetNetworkPhysicsAuthority(bool ownerActive)
+    {
+        if (_networkBall == null)
+            return;
+
+        _usesNetworkSimulation = true;
+        ApplyPhysicsState(ownerActive);
+    }
+
+    private void SetStandalonePhysicsActive()
+    {
+        ApplyPhysicsState(true);
+    }
+
+    private void ApplyPhysicsState(bool active)
+    {
+        if (!active)
+        {
+            if (!_rb.isKinematic)
+            {
+                _rb.linearVelocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+            }
+        }
+
+        _rb.isKinematic = !active;
+        _rb.detectCollisions = active;
+
+        if (_physicsColliders == null)
+            _physicsColliders = GetComponentsInChildren<Collider>(true);
+
+        foreach (Collider physicsCollider in _physicsColliders)
+        {
+            if (physicsCollider != null)
+                physicsCollider.enabled = active;
+        }
     }
 
 }

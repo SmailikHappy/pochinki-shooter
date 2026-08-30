@@ -9,9 +9,11 @@ namespace Pochinki.Networking.Game.Editor
     {
         private const string InstallArgument = "-networkGameInstall";
         private const string BuildArgument = "-networkGameBuildAll";
+        private const string ReleaseBuildArgument = "-networkGameBuildRelease";
 
         private static bool shouldInstall;
         private static bool shouldBuild;
+        private static bool shouldBuildRelease;
         private static bool hasRun;
 
         [InitializeOnLoadMethod]
@@ -20,8 +22,9 @@ namespace Pochinki.Networking.Game.Editor
             string[] arguments = Environment.GetCommandLineArgs();
             shouldInstall = arguments.Contains(InstallArgument);
             shouldBuild = arguments.Contains(BuildArgument);
+            shouldBuildRelease = arguments.Contains(ReleaseBuildArgument);
 
-            if (shouldInstall || shouldBuild)
+            if (shouldInstall || shouldBuild || shouldBuildRelease)
             {
                 Debug.Log("[Network Game] Editor automation is waiting for a ready AssetDatabase.");
                 EditorApplication.update += RunWhenEditorIsReady;
@@ -40,7 +43,11 @@ namespace Pochinki.Networking.Game.Editor
 
             try
             {
-                if (shouldBuild)
+                if (shouldBuildRelease)
+                {
+                    NetworkGameBuild.BuildReleaseFromCommandLine();
+                }
+                else if (shouldBuild)
                 {
                     NetworkGameBuild.BuildAllFromCommandLine();
                 }

@@ -12,23 +12,66 @@ namespace Pochinki.Networking.Game.Editor
         private const string ServerRelativePath = "Builds/Game/Server/PochinkiGameServer.exe";
         private const string WebClientRelativePath = "client/public/unity-build";
 
-        [MenuItem("Pochinki/Network Game/Build/Build dedicated server and WebGL client")]
-        public static void BuildAllFromMenu()
+        private enum BuildFlavor
         {
-            BuildAll();
+            Development,
+            Release,
         }
 
+        [MenuItem("Pochinki/Network Game/Build/Development/Build dedicated server and WebGL client")]
+        public static void BuildAllDevelopmentFromMenu()
+        {
+            BuildAll(BuildFlavor.Development);
+        }
+
+        [MenuItem("Pochinki/Network Game/Build/Development/Build Windows dedicated server")]
+        public static void BuildDedicatedServerDevelopmentFromMenu()
+        {
+            BuildDedicatedServer(BuildFlavor.Development);
+        }
+
+        [MenuItem("Pochinki/Network Game/Build/Development/Build WebGL client")]
+        public static void BuildWebClientDevelopmentFromMenu()
+        {
+            BuildWebClient(BuildFlavor.Development);
+        }
+
+        [MenuItem("Pochinki/Network Game/Build/Release/Build dedicated server and WebGL client")]
+        public static void BuildAllReleaseFromMenu()
+        {
+            BuildAll(BuildFlavor.Release);
+        }
+
+        [MenuItem("Pochinki/Network Game/Build/Release/Build Windows dedicated server")]
+        public static void BuildDedicatedServerReleaseFromMenu()
+        {
+            BuildDedicatedServer(BuildFlavor.Release);
+        }
+
+        [MenuItem("Pochinki/Network Game/Build/Release/Build WebGL client")]
+        public static void BuildWebClientReleaseFromMenu()
+        {
+            BuildWebClient(BuildFlavor.Release);
+        }
+
+        // Kept as the development entry point for existing editor automation.
         public static void BuildAllFromCommandLine()
         {
-            BuildAll();
+            BuildAll(BuildFlavor.Development);
         }
 
-        [MenuItem("Pochinki/Network Game/Build/Build Windows dedicated server")]
-        public static void BuildDedicatedServer()
+        public static void BuildReleaseFromCommandLine()
+        {
+            BuildAll(BuildFlavor.Release);
+        }
+
+        private static void BuildDedicatedServer(BuildFlavor flavor)
         {
             NetworkGameAssetInstaller.Install(openScene: false);
             string location = ResolveRepositoryPath(ServerRelativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(location) ?? throw new InvalidOperationException());
+            string outputDirectory = Path.GetDirectoryName(location)
+                ?? throw new InvalidOperationException("Dedicated server output directory was not found.");
+            RecreateOutputDirectory(outputDirectory);
 
             var options = new BuildPlayerOptions
             {
@@ -36,19 +79,18 @@ namespace Pochinki.Networking.Game.Editor
                 locationPathName = location,
                 target = BuildTarget.StandaloneWindows64,
                 subtarget = (int)StandaloneBuildSubtarget.Server,
-                options = BuildOptions.Development,
+                options = GetBuildOptions(flavor),
             };
 
             EnsureSuccessful(BuildPipeline.BuildPlayer(options), "Windows dedicated server");
-            Debug.Log($"[Network Game] Dedicated server built at {location}.");
+            Debug.Log($"[Network Game] {flavor} dedicated server built at {location}.");
         }
 
-        [MenuItem("Pochinki/Network Game/Build/Build WebGL client")]
-        public static void BuildWebClient()
+        private static void BuildWebClient(BuildFlavor flavor)
         {
             NetworkGameAssetInstaller.Install(openScene: false);
             string location = ResolveRepositoryPath(WebClientRelativePath);
-            Directory.CreateDirectory(location);
+            RecreateOutputDirectory(location);
 
             string previousTemplate = PlayerSettings.WebGL.template;
             try
@@ -59,7 +101,7 @@ namespace Pochinki.Networking.Game.Editor
                     scenes = new[] { NetworkGameAssetInstaller.ScenePath },
                     locationPathName = location,
                     target = BuildTarget.WebGL,
-                    options = BuildOptions.Development,
+                    options = GetBuildOptions(flavor),
                 };
 
                 EnsureSuccessful(BuildPipeline.BuildPlayer(options), "WebGL client");
@@ -69,14 +111,30 @@ namespace Pochinki.Networking.Game.Editor
                 PlayerSettings.WebGL.template = previousTemplate;
             }
 
-            Debug.Log($"[Network Game] WebGL client built at {location}.");
+            Debug.Log($"[Network Game] {flavor} WebGL client built at {location}.");
         }
 
-        private static void BuildAll()
+        private static void BuildAll(BuildFlavor flavor)
         {
-            BuildDedicatedServer();
-            BuildWebClient();
-            Debug.Log("[Network Game] Server and WebGL gameplay builds completed successfully.");
+            BuildDedicatedServer(flavor);
+            BuildWebClient(flavor);
+            Debug.Log($"[Network Game] {flavor} server and WebGL gameplay builds completed successfully.");
+        }
+
+        private static BuildOptions GetBuildOptions(BuildFlavor flavor)
+        {
+            return flavor == BuildFlavor.Development
+                ? BuildOptions.Development
+                : BuildOptions.None;
+        }
+
+        private static void RecreateOutputDirectory(string path)
+        {
+            string fullPath = Path.GetFullPath(path);
+            if (Directory.Exists(fullPath))
+                Directory.Delete(fullPath, recursive: true);
+
+            Directory.CreateDirectory(fullPath);
         }
 
         private static void EnsureSuccessful(BuildReport report, string label)

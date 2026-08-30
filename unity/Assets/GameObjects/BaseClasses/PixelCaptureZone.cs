@@ -4,17 +4,36 @@ using Pochinki.Networking.Game;
 [RequireComponent(typeof(Collider))]
 public class PixelCaptureZone : MonoBehaviour
 {
+    private const float CaptureContactOffset = 0.001f;
+
     [SerializeField] private PlayerOwnable pixelOwnable;
     private Pixel pixel;
+    private Collider captureCollider;
 
     private void Awake()
     {
-        GetComponent<Collider>().isTrigger = true;
+        captureCollider = GetComponent<Collider>();
+        captureCollider.isTrigger = true;
+        captureCollider.contactOffset = CaptureContactOffset;
 
         if (pixelOwnable == null)
             pixelOwnable = GetComponentInParent<PlayerOwnable>();
 
         pixel = GetComponentInParent<Pixel>();
+
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
+        bool networkControlled = bootstrap != null && bootstrap.ControlsGameplayRoster;
+        SetPhysicsAuthority(!networkControlled || bootstrap.IsServer);
+    }
+
+    public void SetPhysicsAuthority(bool enabled)
+    {
+        if (captureCollider == null)
+            captureCollider = GetComponent<Collider>();
+
+        captureCollider.isTrigger = true;
+        captureCollider.contactOffset = CaptureContactOffset;
+        captureCollider.enabled = enabled;
     }
 
     private void OnTriggerEnter(Collider other)

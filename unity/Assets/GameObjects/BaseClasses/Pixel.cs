@@ -13,6 +13,7 @@ public class Pixel : MonoBehaviour
     public int MasterOwnerSlot { get; private set; } = -1;
     private Player masterOwner;
     private PlayerOwnable ownable;
+    private PixelCaptureZone captureZone;
 
     private void Awake()
     {
@@ -20,8 +21,12 @@ public class Pixel : MonoBehaviour
 
         if (captureZoneTransform == null)
         {
-            PixelCaptureZone captureZone = GetComponentInChildren<PixelCaptureZone>(true);
+            captureZone = GetComponentInChildren<PixelCaptureZone>(true);
             captureZoneTransform = captureZone != null ? captureZone.transform : null;
+        }
+        else
+        {
+            captureZone = captureZoneTransform.GetComponent<PixelCaptureZone>();
         }
 
         FitCaptureZoneToVisiblePixel();
@@ -32,6 +37,14 @@ public class Pixel : MonoBehaviour
         GridIndex = gridIndex;
         InitialOwnerSlot = initialOwnerSlot;
         ownable.SetOwner(owner);
+    }
+
+    public void SetCapturePhysicsAuthority(bool enabled)
+    {
+        if (captureZone == null)
+            captureZone = GetComponentInChildren<PixelCaptureZone>(true);
+
+        captureZone?.SetPhysicsAuthority(enabled);
     }
 
     public void ApplyNetworkOwner(Player owner)

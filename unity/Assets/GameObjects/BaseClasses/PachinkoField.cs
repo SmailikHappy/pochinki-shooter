@@ -26,6 +26,9 @@ public class PachinkoField : MonoBehaviour
     private PachinkoBall _activeBall;
     private PachinkoBall _ballPendingReset;
     private Coroutine _respawnRoutine;
+    private Collider[] _physicsColliders;
+    private bool _networkControlled;
+    private bool _physicsAuthorityActive = true;
 
     public int PlayerSlot { get; private set; } = -1;
     public Vector3 SpawnPosition => spawnPoint != null ? spawnPoint.position : transform.position;
@@ -46,21 +49,33 @@ public class PachinkoField : MonoBehaviour
         }
     }
 
+    private void Awake()
+    {
+        _physicsColliders = GetComponentsInChildren<Collider>(true);
+    }
+
+    private IEnumerator Start()
+    {
+        // PachinkoPegGrid may author its fallback pegs in Start. Refresh once
+        // after that lifecycle phase so newly-created colliders inherit the
+        // same role as the rest of the field.
+        yield return null;
+        Pochinki.WebRuntimePerformance.OptimizeMassRenderers(gameObject);
+        SetPhysicsAuthority(_physicsAuthorityActive);
+    }
+
     public void Initialize(Player owner, Canon canon, int playerSlot = -1)
     {
-        if (counter != null && linkedCanon != null)
-            counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
-
         Owner = owner;
         linkedCanon = canon;
         PlayerSlot = playerSlot;
 
         NetworkGameBootstrap networkBootstrap = NetworkGameBootstrap.Instance;
-        bool networkControlled = networkBootstrap != null && networkBootstrap.ControlsGameplayRoster;
-        counter?.ConfigureNetworkMode(networkControlled);
-
-        if (!networkControlled && counter != null && linkedCanon != null)
-            counter.OnBulletRequested.AddListener(linkedCanon.Fire);
+        _networkControlled = networkBootstrap != null && networkBootstrap.ControlsGameplayRoster;
+        counter?.ConfigureNetworkMode(_networkControlled);
+        counter?.ConfigureBulletRequester(
+            !_networkControlled && linkedCanon != null ? linkedCanon.TryFire : null);
+        SetPhysicsAuthority(!_networkControlled);
 
         _initialized = true;
         SpawnBall();
@@ -68,8 +83,8 @@ public class PachinkoField : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (counter != null && linkedCanon != null)
-            counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
+        SetPhysicsAuthority(false);
+        counter?.ConfigureBulletRequester(null);
 
         if (_activeBall != null && _activeBall.IsPersistentNetworkBall)
             _activeBall.DetachFromField(this);
@@ -186,12 +201,38 @@ public class PachinkoField : MonoBehaviour
         ScheduleRespawn(persistentNetworkBall ? ball : null);
     }
 
-    public void AttachNetworkBall(PachinkoBall ball)
+    public void AttachNetworkBall(PachinkoBall ball, bool hasPhysicsAuthority)
     {
         if (ball == null)
             return;
 
+        _networkControlled = true;
         _activeBall = ball;
+        SetPhysicsAuthority(hasPhysicsAuthority);
+    }
+
+    public void DetachNetworkBall(PachinkoBall ball)
+    {
+        if (ball == null || _activeBall != ball)
+            return;
+
+        _activeBall = null;
+        if (_networkControlled)
+            SetPhysicsAuthority(false);
+    }
+
+    private void SetPhysicsAuthority(bool active)
+    {
+        _physicsAuthorityActive = active;
+
+        // Refresh the list so colliders authored or generated after Awake are
+        // governed by the same owner-only rule as the original prefab content.
+        _physicsColliders = GetComponentsInChildren<Collider>(true);
+        foreach (Collider physicsCollider in _physicsColliders)
+        {
+            if (physicsCollider != null)
+                physicsCollider.enabled = active;
+        }
     }
 
     private void ScheduleRespawn(PachinkoBall persistentBall = null)

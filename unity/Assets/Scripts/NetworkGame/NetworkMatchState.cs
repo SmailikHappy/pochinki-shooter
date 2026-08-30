@@ -330,7 +330,25 @@ namespace Pochinki.Networking.Game
                     break;
                 }
 
-                canon.Fire();
+                if (!canon.TryFire())
+                {
+                    // A short server-side fire cooldown is expected while a release
+                    // series is in progress. Wait for it without consuming a shot.
+                    if (canon.RemainingFireCooldown > 0f)
+                    {
+                        yield return null;
+                        continue;
+                    }
+
+                    // Any other failure is permanent for this release attempt
+                    // (missing prefab/owner, failed network spawn, etc.). Stop rather
+                    // than spinning forever and keep the unspent counter value.
+                    Debug.LogWarning(
+                        $"[Network Game] Release stopped because slot {slot}'s cannon could not spawn a bullet.",
+                        canon);
+                    break;
+                }
+
                 shotsRemaining--;
                 counterValues[slot] = shotsRemaining;
 
@@ -340,7 +358,7 @@ namespace Pochinki.Networking.Game
                 }
             }
 
-            counterValues[slot] = 1;
+            counterValues[slot] = shotsRemaining <= 0 ? 1 : shotsRemaining;
             releasingSlots[slot] = 0;
             releaseRoutines[slot] = null;
         }

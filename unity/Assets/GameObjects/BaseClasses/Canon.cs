@@ -13,11 +13,16 @@ public class Canon : MonoBehaviour
     [SerializeField] private float bulletSpeed = 15f;
     [SerializeField] private float bulletScale = 0.1f;
 
+    [Header("Fire Rate")]
+    [Tooltip("Minimum interval between successful shots. Set to 0 to disable the limit.")]
+    [SerializeField, Range(0f, 0.1f)] private float fireCooldown = 0.1f;
+
     private PlayerOwnable playerOwnable;
     private InputActionAsset runtimeInputActions;
     private InputAction fireAction;
     private bool initialized;
     private bool inputActive;
+    private float lastFireTime = float.NegativeInfinity;
 
     public Player Owner => playerOwnable != null ? playerOwnable.GetOwner() : null;
     public Vector3 FirePosition => firePoint != null ? firePoint.position : transform.position;
@@ -25,6 +30,14 @@ public class Canon : MonoBehaviour
     public Vector3 FireDirection => firePoint != null ? firePoint.right : transform.right;
     public float BulletSpeed => bulletSpeed;
     public float BulletScale => bulletScale;
+    public float RemainingFireCooldown => fireCooldown <= 0f
+        ? 0f
+        : Mathf.Max(0f, fireCooldown - (Time.time - lastFireTime));
+
+    private void OnValidate()
+    {
+        fireCooldown = Mathf.Clamp(fireCooldown, 0f, 0.1f);
+    }
 
     private void Awake()
     {
@@ -120,7 +133,7 @@ public class Canon : MonoBehaviour
 
     private void Shoot(InputAction.CallbackContext context)
     {
-        Fire();
+        TryFire();
     }
 
     /// <summary>
@@ -128,30 +141,32 @@ public class Canon : MonoBehaviour
     /// Input ownership is checked at the InputAction boundary, so this method
     /// remains usable by the gameplay mechanic for every player's canon.
     /// </summary>
-    public void Fire()
+    public bool TryFire()
     {
+        if (RemainingFireCooldown > 0f)
+            return false;
+
         if (bulletPrefab == null || firePoint == null)
         {
             Debug.LogWarning("Canon: bulletPrefab or firePoint is not assigned.", this);
-            return;
+            return false;
         }
 
         Player owner = playerOwnable.GetOwner();
         if (owner == null)
         {
             Debug.LogWarning("Canon: cannot fire without an owner.", this);
-            return;
+            return false;
         }
 
         NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
         if (bootstrap != null && bootstrap.ControlsGameplayRoster)
         {
-            if (bootstrap.IsServer)
-            {
-                bootstrap.TrySpawnNetworkBullet(this);
-            }
+            if (!bootstrap.IsServer || !bootstrap.TrySpawnNetworkBullet(this))
+                return false;
 
-            return;
+            lastFireTime = Time.time;
+            return true;
         }
 
         GameObject bullet = Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
@@ -161,9 +176,19 @@ public class Canon : MonoBehaviour
         {
             Debug.LogWarning("Canon: bulletPrefab has no Bullet component.", bullet);
             Destroy(bullet);
-            return;
+            return false;
         }
 
         bulletComponent.Init(owner, firePoint.right, bulletSpeed, bulletScale);
+        lastFireTime = Time.time;
+        return true;
+    }
+
+    /// <summary>
+    /// Compatibility wrapper for authored UnityEvents that do not consume a result.
+    /// </summary>
+    public void Fire()
+    {
+        TryFire();
     }
 }

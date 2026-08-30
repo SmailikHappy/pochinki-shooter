@@ -6,6 +6,7 @@ node_modules/
 dist/
 client/public/unity-build/
 client/public/ngo-spike/
+client/public/*_BurstDebugInformation_DoNotShip/
 Builds/NGOSpike/
 Builds/Game/
 unity-mirror/

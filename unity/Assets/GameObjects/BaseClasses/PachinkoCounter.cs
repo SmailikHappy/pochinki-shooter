@@ -27,6 +27,7 @@ public class PachinkoCounter : MonoBehaviour
     private int currentValue;
     private bool isReleasing;
     private bool networkControlled;
+    private Func<bool> bulletRequester;
 
     /// <summary>
     /// Текущее значение счётчика.
@@ -45,6 +46,11 @@ public class PachinkoCounter : MonoBehaviour
     public void ConfigureNetworkMode(bool controlledByServer)
     {
         networkControlled = controlledByServer;
+    }
+
+    public void ConfigureBulletRequester(Func<bool> requester)
+    {
+        bulletRequester = requester;
     }
 
     public void ApplyNetworkState(int value, bool releasing)
@@ -109,7 +115,20 @@ public class PachinkoCounter : MonoBehaviour
 
         while (currentValue > 0)
         {
-            OnBulletRequested?.Invoke();
+            if (bulletRequester != null)
+            {
+                if (!bulletRequester())
+                {
+                    yield return null;
+                    continue;
+                }
+            }
+            else
+            {
+                // Compatibility path for standalone scenes that still wire the
+                // firing mechanism directly through the authored UnityEvent.
+                OnBulletRequested?.Invoke();
+            }
             currentValue--;
             NotifyCounterChanged();
 

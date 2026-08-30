@@ -22,12 +22,12 @@ namespace Pochinki.Networking.Game
 
         private PachinkoBall pachinkoBall;
         private NetworkTransform networkTransform;
-        private Rigidbody body;
         private byte configuredServerSlot = NetworkSessionPlayer.UnassignedSlot;
         private PachinkoField boundField;
         private Coroutine bindRoutine;
         private uint nextZoneSequence;
         private uint lastServerZoneSequence;
+        private bool postSpawnReady;
 
         public int PlayerSlot => playerSlot.Value == NetworkSessionPlayer.UnassignedSlot
             ? -1
@@ -39,7 +39,6 @@ namespace Pochinki.Networking.Game
         {
             pachinkoBall = GetComponent<PachinkoBall>();
             networkTransform = GetComponent<NetworkTransform>();
-            body = GetComponent<Rigidbody>();
         }
 
         public void ConfigureBeforeSpawn(int slot)
@@ -59,12 +58,20 @@ namespace Pochinki.Networking.Game
                 playerSlot.Value = configuredServerSlot;
             }
 
+        }
+
+        protected override void OnNetworkPostSpawn()
+        {
+            postSpawnReady = true;
+            ApplyPhysicsAuthority(HasPhysicsAuthority);
             NetworkGameBootstrap.Instance?.RegisterPachinkoBall(this);
             QueueBindToGameplayField();
         }
 
         public override void OnNetworkDespawn()
         {
+            postSpawnReady = false;
+            ApplyPhysicsAuthority(false);
             playerSlot.OnValueChanged -= HandleSlotChanged;
             NetworkGameBootstrap.Instance?.UnregisterPachinkoBall(this);
 
@@ -74,21 +81,29 @@ namespace Pochinki.Networking.Game
                 bindRoutine = null;
             }
 
-            boundField = null;
-            pachinkoBall?.DetachFromField();
+            DetachBoundField();
         }
 
-        public void PrepareStandaloneSimulation()
+        public override void OnGainedOwnership()
         {
-            if (!IsSpawned && body != null)
-            {
-                body.isKinematic = false;
-            }
+            base.OnGainedOwnership();
+
+            if (!postSpawnReady)
+                return;
+
+            ApplyPhysicsAuthority(true);
+            QueueBindToGameplayField();
+        }
+
+        public override void OnLostOwnership()
+        {
+            ApplyPhysicsAuthority(false);
+            base.OnLostOwnership();
         }
 
         public void BindToGameplayField()
         {
-            if (!IsSpawned || PlayerSlot < 0)
+            if (!postSpawnReady || !IsSpawned || PlayerSlot < 0)
             {
                 return;
             }
@@ -100,16 +115,13 @@ namespace Pochinki.Networking.Game
                 return;
             }
 
-            bool fieldChanged = boundField != field;
-            boundField = field;
-            field.AttachNetworkBall(pachinkoBall);
-            pachinkoBall.Initialize(field, resetAndLaunch: fieldChanged && IsOwner);
+            BindToField(field);
         }
 
         public void DetachFromGameplayField()
         {
-            boundField = null;
-            pachinkoBall?.DetachFromField();
+            ApplyPhysicsAuthority(false);
+            DetachBoundField();
         }
 
         public void TeleportFromOwner(Vector3 position, Quaternion rotation)
@@ -155,6 +167,9 @@ namespace Pochinki.Networking.Game
 
         private void HandleSlotChanged(byte previousValue, byte newValue)
         {
+            if (!postSpawnReady)
+                return;
+
             NetworkGameBootstrap.Instance?.RegisterPachinkoBall(this);
             QueueBindToGameplayField();
         }
@@ -178,10 +193,7 @@ namespace Pochinki.Networking.Game
                     GameHandler.instance.TryGetPachinkoFieldForSlot(PlayerSlot, out PachinkoField field))
                 {
                     bindRoutine = null;
-                    bool fieldChanged = boundField != field;
-                    boundField = field;
-                    field.AttachNetworkBall(pachinkoBall);
-                    pachinkoBall.Initialize(field, resetAndLaunch: fieldChanged && IsOwner);
+                    BindToField(field);
                     yield break;
                 }
 
@@ -189,6 +201,37 @@ namespace Pochinki.Networking.Game
             }
 
             bindRoutine = null;
+        }
+
+        private void BindToField(PachinkoField field)
+        {
+            bool fieldChanged = boundField != field;
+            if (fieldChanged && boundField != null)
+                boundField.DetachNetworkBall(pachinkoBall);
+
+            boundField = field;
+            bool hasPhysicsAuthority = HasPhysicsAuthority;
+            field.AttachNetworkBall(pachinkoBall, hasPhysicsAuthority);
+            pachinkoBall.Initialize(
+                field,
+                resetAndLaunch: fieldChanged && hasPhysicsAuthority);
+        }
+
+        private void ApplyPhysicsAuthority(bool active)
+        {
+            pachinkoBall?.SetNetworkPhysicsAuthority(active);
+
+            if (boundField != null)
+                boundField.AttachNetworkBall(pachinkoBall, active);
+        }
+
+        private void DetachBoundField()
+        {
+            if (boundField != null)
+                boundField.DetachNetworkBall(pachinkoBall);
+
+            boundField = null;
+            pachinkoBall?.DetachFromField();
         }
     }
 }

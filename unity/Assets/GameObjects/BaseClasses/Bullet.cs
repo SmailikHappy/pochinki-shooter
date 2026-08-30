@@ -6,6 +6,7 @@ using UnityEngine;
 public class Bullet : MonoBehaviour
 {
     private const string BulletLayerName = "Bullet";
+    private const float BulletContactOffset = 0.001f;
 
     [SerializeField] private LayerMask wallLayer;
 
@@ -18,19 +19,24 @@ public class Bullet : MonoBehaviour
     private Rigidbody _rb;
     private Collider _collider;
     private NetworkBullet _networkBullet;
+    private bool _usesNetworkSimulation;
     private Vector3 _spawnPosition;
     private Vector3 _lastPhysicsVelocity;
     private float _destroyAt;
     private bool _simulationActive;
 
     public bool CanCapturePixel => _simulationActive &&
-        (_networkBullet == null || (_networkBullet.IsSpawned && _networkBullet.IsServer));
+        (!_usesNetworkSimulation ||
+            (_networkBullet != null && _networkBullet.IsSpawned && _networkBullet.IsServer));
 
     private void Awake()
     {
+        Pochinki.WebRuntimePerformance.OptimizeMassRenderers(gameObject);
+
         _rb = GetComponent<Rigidbody>();
         _collider = GetComponent<Collider>();
         _networkBullet = GetComponent<NetworkBullet>();
+        _usesNetworkSimulation = _networkBullet != null;
 
         _rb.useGravity = false;
         _rb.isKinematic = _networkBullet != null;
@@ -45,6 +51,10 @@ public class Bullet : MonoBehaviour
             : RigidbodyInterpolation.None;
 
         _collider.isTrigger = false;
+        _collider.contactOffset = BulletContactOffset;
+
+        if (_networkBullet != null)
+            SetNetworkPhysicsAuthority(false);
 
         int bulletLayer = LayerMask.NameToLayer(BulletLayerName);
         if (bulletLayer >= 0 && gameObject.layer == bulletLayer &&
@@ -58,6 +68,7 @@ public class Bullet : MonoBehaviour
 
     public void Init(Player owner, Vector3 direction, float speed, float scale)
     {
+        _usesNetworkSimulation = false;
         BindNetworkOwner(owner);
         this.direction = direction.sqrMagnitude > 0f ? direction.normalized : transform.right;
         this.speed = Mathf.Max(0f, speed);
@@ -66,6 +77,8 @@ public class Bullet : MonoBehaviour
         _spawnPosition = transform.position;
         _destroyAt = Time.time + Mathf.Max(0.1f, maxLifetimeSeconds);
         _simulationActive = true;
+        _collider.enabled = true;
+        _rb.detectCollisions = true;
         _rb.isKinematic = false;
         _rb.linearVelocity = this.direction * this.speed;
         _lastPhysicsVelocity = _rb.linearVelocity;
@@ -73,6 +86,7 @@ public class Bullet : MonoBehaviour
 
     public void PrepareNetworkSpawn(Player owner, float scale)
     {
+        _usesNetworkSimulation = true;
         BindNetworkOwner(owner);
         transform.localScale = Vector3.one * Mathf.Max(0.001f, scale);
         _spawnPosition = transform.position;
@@ -80,6 +94,7 @@ public class Bullet : MonoBehaviour
 
     public void BeginServerNetworkSimulation(Vector3 launchDirection, float launchSpeed)
     {
+        _usesNetworkSimulation = true;
         direction = launchDirection.sqrMagnitude > 0f ? launchDirection.normalized : transform.right;
         speed = Mathf.Max(0f, launchSpeed);
         _spawnPosition = transform.position;
@@ -88,6 +103,27 @@ public class Bullet : MonoBehaviour
         _rb.isKinematic = false;
         _rb.linearVelocity = direction * speed;
         _lastPhysicsVelocity = _rb.linearVelocity;
+    }
+
+    public void SetNetworkPhysicsAuthority(bool serverActive)
+    {
+        if (_networkBullet == null)
+            return;
+
+        _usesNetworkSimulation = true;
+        if (!serverActive)
+        {
+            _simulationActive = false;
+            if (!_rb.isKinematic)
+            {
+                _rb.linearVelocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+            }
+        }
+
+        _rb.isKinematic = !serverActive;
+        _rb.detectCollisions = serverActive;
+        _collider.enabled = serverActive;
     }
 
     public void BindNetworkOwner(Player owner)
@@ -103,7 +139,8 @@ public class Bullet : MonoBehaviour
         if (!_simulationActive)
             return;
 
-        if (_networkBullet != null && (!_networkBullet.IsSpawned || !_networkBullet.IsServer))
+        if (_usesNetworkSimulation &&
+            (_networkBullet == null || !_networkBullet.IsSpawned || !_networkBullet.IsServer))
             return;
 
         float maxDistance = Mathf.Max(1f, maxDistanceFromSpawn);
@@ -115,7 +152,8 @@ public class Bullet : MonoBehaviour
     private void FixedUpdate()
     {
         if (!_simulationActive ||
-            (_networkBullet != null && (!_networkBullet.IsSpawned || !_networkBullet.IsServer)))
+            (_usesNetworkSimulation &&
+                (_networkBullet == null || !_networkBullet.IsSpawned || !_networkBullet.IsServer)))
             return;
 
         _lastPhysicsVelocity = _rb.linearVelocity;
@@ -124,7 +162,8 @@ public class Bullet : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         if (!_simulationActive ||
-            (_networkBullet != null && (!_networkBullet.IsSpawned || !_networkBullet.IsServer)))
+            (_usesNetworkSimulation &&
+                (_networkBullet == null || !_networkBullet.IsSpawned || !_networkBullet.IsServer)))
             return;
 
         if (((1 << collision.gameObject.layer) & wallLayer) == 0)

@@ -1,6 +1,9 @@
 using System.Collections.Generic;
+using Pochinki.Networking.Game;
 using UnityEngine;
 
+[DisallowMultipleComponent]
+[RequireComponent(typeof(GameSurfaceRenderer))]
 public class GameSurface : MonoBehaviour
 {
     private const string PixelParentName = "PixelParent";
@@ -17,6 +20,11 @@ public class GameSurface : MonoBehaviour
     private float cellPitchX;
     private float cellPitchZ;
     private Vector3 effectivePixelScale;
+
+    [Header("Runtime Rendering")]
+    [Tooltip("Batches Pixel visuals in player builds while keeping the ordinary Pixel prefab as the authoring source.")]
+    [SerializeField] private GameSurfaceRenderer surfaceRenderer;
+    [SerializeField] private bool useInstancedRenderingInPlayer = true;
 
     [Header("Prefab Settings")]
     [SerializeField] private GameObject pixelPrefab;
@@ -38,6 +46,12 @@ public class GameSurface : MonoBehaviour
     private readonly List<Pixel> spawnedPixels = new();
     public IReadOnlyDictionary<Player, Canon> SpawnedCanons => spawnedCanons;
     public IReadOnlyList<Pixel> SpawnedPixels => spawnedPixels;
+
+    private void Awake()
+    {
+        if (surfaceRenderer == null)
+            surfaceRenderer = GetComponent<GameSurfaceRenderer>();
+    }
 
     public bool SpawnGrid(IReadOnlyList<Player> players, IReadOnlyList<int> playerSlots = null)
     {
@@ -73,6 +87,10 @@ public class GameSurface : MonoBehaviour
         float totalWidth = (columns - 1) * cellPitchX;
         float totalDepth = (rows - 1) * cellPitchZ;
         Vector3 halfOffset = new Vector3(totalWidth / 2f, 0, totalDepth / 2f);
+        NetworkGameBootstrap networkBootstrap = NetworkGameBootstrap.Instance;
+        bool capturePhysicsEnabled = networkBootstrap == null ||
+            !networkBootstrap.ControlsGameplayRoster ||
+            networkBootstrap.IsServer;
 
         for (int x = 0; x < columns; x++)
         {
@@ -92,6 +110,7 @@ public class GameSurface : MonoBehaviour
                     ? ResolvePlayerSlot(ownerIndex, playerSlots)
                     : -1;
                 pixel?.Init(owner, x * rows + z, ownerSlot);
+                pixel?.SetCapturePhysicsAuthority(capturePhysicsEnabled);
 
                 if (pixel != null)
                     spawnedPixels.Add(pixel);
@@ -146,6 +165,15 @@ public class GameSurface : MonoBehaviour
             Pixel masterPixel = spawnTransform.GetComponent<Pixel>();
             if (masterPixel != null)
                 masterPixel.MarkAsMasterPixel(player, playerSlot);
+        }
+
+        if (ShouldUseOptimizedRendering())
+        {
+            if (surfaceRenderer == null)
+                surfaceRenderer = GetComponent<GameSurfaceRenderer>() ??
+                    gameObject.AddComponent<GameSurfaceRenderer>();
+
+            surfaceRenderer.Rebuild(spawnedPixels);
         }
 
         return true;
@@ -229,6 +257,7 @@ public class GameSurface : MonoBehaviour
 
     public void ClearChildren()
     {
+        surfaceRenderer?.Clear();
         DestroyGeneratedContainer(ref pixelParent, PixelParentName);
         DestroyGeneratedContainer(ref canonParent, CanonParentName);
         spawnedCanons.Clear();
@@ -282,5 +311,18 @@ public class GameSurface : MonoBehaviour
             Destroy(container);
         else
             DestroyImmediate(container);
+    }
+
+    private bool ShouldUseOptimizedRendering()
+    {
+        if (!useInstancedRenderingInPlayer)
+            return false;
+
+#if UNITY_EDITOR
+        // Keep ordinary renderers visible and selectable while artists work in Play Mode.
+        return false;
+#else
+        return true;
+#endif
     }
 }
