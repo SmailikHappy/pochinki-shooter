@@ -1,5 +1,6 @@
-using UnityEngine;
+using System.Collections.Generic;
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(GameSurface))]
 public class GameSurfaceEditor : Editor
@@ -15,7 +16,7 @@ public class GameSurfaceEditor : Editor
             SpawnGrid(spawner);
         }
 
-        if (GUILayout.Button("Clear Children"))
+        if (GUILayout.Button("Clear Grid"))
         {
             ClearChildren(spawner);
         }
@@ -23,42 +24,25 @@ public class GameSurfaceEditor : Editor
 
     void SpawnGrid(GameSurface spawner)
     {
-        if (spawner.prefab == null) return;
+        Debug.Log("Spawning debug grid...");
 
-        Undo.SetCurrentGroupName("Spawn Prefab Grid");
-        int group = Undo.GetCurrentGroup();
-
-        float totalWidth = (spawner.columns - 1) * spawner.spacingX;
-        float totalDepth = (spawner.rows - 1) * spawner.spacingZ;
-        Vector3 halfOffset = new Vector3(totalWidth / 2f, 0, totalDepth / 2f);
-
-        for (int x = 0; x < spawner.columns; x++)
+        List<Player> players = new()
         {
-            for (int z = 0; z < spawner.rows; z++)
-            {
-                Vector3 localPos = new Vector3(x * spawner.spacingX, 0, z * spawner.spacingZ) - halfOffset;
+            new GameObject("DebugPlayer1").AddComponent<Player>(),
+            new GameObject("DebugPlayer2").AddComponent<Player>(),
+            new GameObject("DebugPlayer3").AddComponent<Player>(),
+            new GameObject("DebugPlayer4").AddComponent<Player>()
+        };
 
-                GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(spawner.prefab, spawner.transform);
-                instance.transform.localPosition = localPos;
-                instance.transform.localRotation = Quaternion.identity;
-                instance.transform.localScale = Vector3.one;
-                Undo.RegisterCreatedObjectUndo(instance, "Spawn Prefab");
-            }
+        foreach (var player in players)
+        {
+            player.SetMaterial(new Material(Shader.Find("Standard")));
         }
-
-        Undo.CollapseUndoOperations(group);
+        spawner.SpawnGrid(players);
     }
 
     void ClearChildren(GameSurface spawner)
     {
-        Undo.SetCurrentGroupName("Clear Grid");
-        int group = Undo.GetCurrentGroup();
-
-        for (int i = spawner.transform.childCount - 1; i >= 0; i--)
-        {
-            Undo.DestroyObjectImmediate(spawner.transform.GetChild(i).gameObject);
-        }
-
-        Undo.CollapseUndoOperations(group);
+        spawner.ClearChildren();
     }
 }

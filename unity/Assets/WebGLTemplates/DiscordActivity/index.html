@@ -88,8 +88,8 @@
         }
 
         unityInstance.SendMessage(
-          'InputDebugOverlay',
-          'ReceiveMultiplayerSnapshot',
+          'DiscordHandler',
+          'ReceiveSnapshot',
           pendingMultiplayerSnapshot,
         );
         pendingMultiplayerSnapshot = null;

@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3031639361528285830}
   - component: {fileID: 7057060591459871095}
+  - component: {fileID: 6308642625887015155}
   - component: {fileID: 8763853216948219540}
   - component: {fileID: 7010298255146987335}
   m_Layer: 0
@@ -46,6 +47,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67deb464120944842875691e4694b80d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Pixel
+--- !u!114 &6308642625887015155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5450222007341424355}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95548a36e685dfe47aee9038f4d46e32, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerOwnable
+  playerRenderer: {fileID: 7010298255146987335}
 --- !u!33 &8763853216948219540
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -79,7 +93,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10306, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 6082abee23568864eb1012baf006a941, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

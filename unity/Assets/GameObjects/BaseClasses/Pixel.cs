@@ -1,16 +1,10 @@
 using UnityEngine;
 
+[RequireComponent(typeof(PlayerOwnable))]
 public class Pixel : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public void Init(Player owner)
     {
-
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-
+        GetComponent<PlayerOwnable>().SetOwner(owner);
     }
 }
