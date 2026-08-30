@@ -51,9 +51,58 @@ public sealed class GameHandler : MonoBehaviour
 
     private void Start()
     {
-        // Covers unusual script execution orders and scene reloads. Reapplying
-        // an unchanged roster is intentionally a no-op for generated gameplay.
-        DiscordHandler.Instance?.ApplyRosterToGame();
+        // Do not start gameplay automatically on scene load. The roster can be
+        // loaded and updated without launching the match until the user presses
+        // the explicit start button.
+    }
+
+    public bool AreAllPlayersReady()
+    {
+        if (players.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (Player player in players.Values)
+        {
+            if (player == null || !player.IsReady)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public void MarkPlayerReady(Player player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        player.SetReady(true);
+
+        if (AreAllPlayersReady())
+        {
+            StartGame();
+        }
+    }
+
+    public void StartGame(bool force = false)
+    {
+        if (gameState == GameState.InProgress)
+        {
+            return;
+        }
+
+        if (!force && !AreAllPlayersReady())
+        {
+            return;
+        }
+
+        RebuildGameplay();
+        HideLobbyButtons();
     }
 
     public void ApplyRoster(IReadOnlyList<DiscordUser> roster)
@@ -91,7 +140,7 @@ public sealed class GameHandler : MonoBehaviour
             activeRosterIds.Add(user.UniqueId);
         }
 
-        if (rosterChanged)
+        if (rosterChanged && gameState == GameState.InProgress)
         {
             RebuildGameplay();
         }
@@ -381,6 +430,17 @@ public sealed class GameHandler : MonoBehaviour
         }
     }
 
+    private void HideLobbyButtons()
+    {
+        GameUI[] gameUis = FindObjectsByType<GameUI>(FindObjectsInactive.Include);
+        foreach (GameUI gameUi in gameUis)
+        {
+            if (gameUi != null)
+            {
+                gameUi.HideLobbyButtons();
+            }
+        }
+    }
 
     private static Vector3 MirrorX(Vector3 position, float centerX)
     {
