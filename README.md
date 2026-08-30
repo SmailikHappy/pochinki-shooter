@@ -54,7 +54,7 @@ npm run dev
 
 ```powershell
 cd client
-npm run dev
+npm run discord
 ```
 
 Frontend откроется на `http://localhost:5173`. Запросы `/api/*` Vite проксирует на backend.

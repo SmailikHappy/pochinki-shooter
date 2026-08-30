@@ -26,10 +26,8 @@ public sealed class GameHandler : MonoBehaviour
 
     [Header("Pachinko")]
     [SerializeField] private GameObject pachinkoFieldPrefab;
-    [Tooltip("Absolute world position of the bottom-left player's field (slot 0).")]
-    [SerializeField] private Vector3 bottomLeftFieldPosition = new(-4.2f, 0f, -4.2f);
-    [Tooltip("Absolute world position of the top-left player's field (slot 2).")]
-    [SerializeField] private Vector3 topLeftFieldPosition = new(-7.02f, 0f, -2.42f);
+    [Tooltip("PachinkoSpawn (1)..(4) из сцены — назначить вручную в том же порядке, в котором должны занимать слоты игроки.")]
+    [SerializeField] private Transform[] pachinkoSpawnPoints = new Transform[4];
     [SerializeField] private Vector3 pachinkoFieldRotationOffset = new(90f, 0f, 0f);
 
     private readonly Dictionary<string, Player> players = new(StringComparer.Ordinal);
@@ -266,15 +264,27 @@ public sealed class GameHandler : MonoBehaviour
             return;
         }
 
-        List<Transform> cornerSpawns = gameSurface.GetSpawnTransforms();
-        float centerX = gameSurface.transform.position.x;
-        Quaternion rotation = Quaternion.Euler(pachinkoFieldRotationOffset);
+        if (pachinkoSpawnPoints == null || pachinkoSpawnPoints.Length == 0)
+        {
+            Debug.LogWarning("GameHandler: pachinkoSpawnPoints is not assigned.", this);
+            return;
+        }
 
-        for (int index = 0; index < playersForGrid.Count && index < cornerSpawns.Count; index++)
+        Quaternion rotationOffset = Quaternion.Euler(pachinkoFieldRotationOffset);
+
+        for (int index = 0; index < playersForGrid.Count && index < pachinkoSpawnPoints.Length; index++)
         {
             Player player = playersForGrid[index];
-            Vector3 spawnPosition = GetFieldPosition(index, centerX);
-            GameObject fieldObject = Instantiate(pachinkoFieldPrefab, spawnPosition, rotation);
+            Transform spawnPoint = pachinkoSpawnPoints[index];
+
+            if (spawnPoint == null)
+            {
+                Debug.LogWarning($"GameHandler: pachinkoSpawnPoints[{index}] is not assigned.", this);
+                continue;
+            }
+
+            Quaternion rotation = spawnPoint.rotation * rotationOffset;
+            GameObject fieldObject = Instantiate(pachinkoFieldPrefab, spawnPoint.position, rotation);
             PachinkoField field = fieldObject.GetComponentInChildren<PachinkoField>(true);
 
             if (field == null)
@@ -330,17 +340,6 @@ public sealed class GameHandler : MonoBehaviour
         }
     }
 
-    private Vector3 GetFieldPosition(int cornerIndex, float centerX)
-    {
-        return cornerIndex switch
-        {
-            0 => bottomLeftFieldPosition,
-            1 => MirrorX(bottomLeftFieldPosition, centerX),
-            2 => topLeftFieldPosition,
-            3 => MirrorX(topLeftFieldPosition, centerX),
-            _ => Vector3.zero,
-        };
-    }
 
     private static Vector3 MirrorX(Vector3 position, float centerX)
     {
