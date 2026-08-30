@@ -5,3 +5,6 @@ cloudflared.exe
 node_modules/
 dist/
 client/public/unity-build/
+client/public/ngo-spike/
+Builds/NGOSpike/
+unity-mirror/

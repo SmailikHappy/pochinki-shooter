@@ -26,6 +26,15 @@ const proxy = {
     target: 'ws://localhost:3001',
     ws: true,
   },
+  // Unity Transport speaks its binary NGO protocol over this WebSocket.
+  // Keeping it on the Vite origin lets the same WebGL build use ws:// locally
+  // and wss:// through Cloudflare/Discord without hard-coded public URLs. The
+  // path must not prefix the /ngo-spike build directory: Vite proxy keys match
+  // by prefix and would otherwise forward the WebGL page itself to UTP.
+  '/ngo-ws': {
+    target: 'ws://localhost:7777',
+    ws: true,
+  },
 };
 
 export default defineConfig({
