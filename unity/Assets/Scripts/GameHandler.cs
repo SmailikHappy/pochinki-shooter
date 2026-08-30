@@ -445,7 +445,7 @@ public sealed class GameHandler : MonoBehaviour
         {
             if (gameUi != null)
             {
-                gameUi.HideLobbyButtons();
+                gameUi.StartGame();
             }
         }
     }
