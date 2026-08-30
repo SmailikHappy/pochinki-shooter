@@ -7,44 +7,28 @@ public class PachinkoCounter : MonoBehaviour
 {
     [Header("Counter")]
     [SerializeField] private int startValue = 1;
-    [SerializeField, Min(1)] private int maxValue = 2147483647;
-
-    [Tooltip("Задержка между каждым выпускаемым выстрелом.")]
-    [SerializeField] private float shotInterval = 0.15f;
+    [SerializeField, Min(1)] private int maxValue = 64;
 
     [Header("Pachinko Field")]
     [SerializeField] private PachinkoField field;
     [Header("Events")]
     public UnityEvent<int> OnCounterChanged;
-
-    /// <summary>
-    /// Вызывается ОДИН раз на каждую пулю.
-    /// На это событие потом может подписаться система стрельбы.
-    /// </summary>
     public UnityEvent OnBulletRequested;
+    public UnityEvent OnReleaseFinished;
+    public UnityEvent OnEventTriggered;
 
     private int currentValue;
     private bool isReleasing;
+    private Canon linkedCanonForFire;
 
-    /// <summary>
-    /// Текущее значение счётчика.
-    /// Доступно другим скриптам.
-    /// </summary>
     public int CurrentValue => currentValue;
-
-    /// <summary>
-    /// Сколько пуль было заказано в последней серии.
-    /// Например, если счётчик был 8 и попали в R — значение будет 8.
-    /// </summary>
     public int LastReleaseAmount { get; private set; }
-
     public bool IsReleasing => isReleasing;
 
     private void Awake()
     {
         maxValue = Mathf.Max(1, maxValue);
         currentValue = Mathf.Clamp(startValue, 1, maxValue);
-
     }
 
     private void Start()
@@ -52,9 +36,11 @@ public class PachinkoCounter : MonoBehaviour
         NotifyCounterChanged();
     }
 
-    /// <summary>
-    /// Попадание шарика в X2.
-    /// </summary>
+    public void SetFireHandler(Canon canon)
+    {
+        linkedCanonForFire = canon;
+    }
+
     public void Multiply(int multiplier = 2)
     {
         if (isReleasing)
@@ -68,8 +54,29 @@ public class PachinkoCounter : MonoBehaviour
     }
 
     /// <summary>
-    /// Попадание шарика в R.
+    /// Добавляет к текущему значению счётчика произвольное количество (бонус
+    /// +100 из UI). Игнорируется во время Release — currentValue в этот момент
+    /// отражает оставшиеся выстрелы серии, менять его на лету нельзя.
     /// </summary>
+    public void AddValue(int amount)
+    {
+        if (isReleasing)
+            return;
+
+        long newValue = (long)currentValue + amount;
+        currentValue = (int)Mathf.Clamp(newValue, 1, maxValue);
+
+        NotifyCounterChanged();
+    }
+
+    public void TriggerEvent()
+    {
+        if (isReleasing)
+            return;
+
+        OnEventTriggered?.Invoke();
+    }
+
     public void Release()
     {
         if (isReleasing)
@@ -77,8 +84,6 @@ public class PachinkoCounter : MonoBehaviour
 
         StartCoroutine(ReleaseRoutine());
     }
-
-    public UnityEvent OnReleaseFinished;
 
     private IEnumerator ReleaseRoutine()
     {
@@ -90,12 +95,11 @@ public class PachinkoCounter : MonoBehaviour
 
         while (currentValue > 0)
         {
+            yield return WaitForConfirmedFire();
+
             OnBulletRequested?.Invoke();
             currentValue--;
             NotifyCounterChanged();
-
-            if (currentValue > 0)
-                yield return new WaitForSeconds(shotInterval);
         }
 
         currentValue = 1;
@@ -109,18 +113,13 @@ public class PachinkoCounter : MonoBehaviour
         OnReleaseFinished?.Invoke();
     }
 
-    public UnityEvent OnEventTriggered;
-
-    /// <summary>
-    /// Попадание шарика в Event-зону. Не меняет currentValue — только сигнал
-    /// для UI показать временную надпись поверх текущего числа.
-    /// </summary>
-    public void TriggerEvent()
+    private IEnumerator WaitForConfirmedFire()
     {
-        if (isReleasing)
-            return;
+        if (linkedCanonForFire == null)
+            yield break;
 
-        OnEventTriggered?.Invoke();
+        while (linkedCanonForFire != null && !linkedCanonForFire.TryFire())
+            yield return null;
     }
 
     private void NotifyCounterChanged()

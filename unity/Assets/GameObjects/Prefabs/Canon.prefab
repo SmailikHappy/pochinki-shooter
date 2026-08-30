@@ -85,7 +85,7 @@ MonoBehaviour:
   bulletPrefab: {fileID: 985186708055616583, guid: 36288f919bcb4224eb71dae781acd265, type: 3}
   bulletSpeed: 3
   bulletScale: 0.1
-  fireCooldown: 0.5
+  fireCooldown: 0.05
 --- !u!114 &8394732363149474935
 MonoBehaviour:
   m_ObjectHideFlags: 0

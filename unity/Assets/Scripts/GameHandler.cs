@@ -353,9 +353,16 @@ public sealed class GameHandler : MonoBehaviour
 
             gameSurface.SpawnedCanons.TryGetValue(player, out Canon canon);
             field.Initialize(player, canon);
+            spawnedFieldsByPlayer[player] = field;
             spawnedFieldObjects.Add(fieldObject);
         }
     }
+
+    private readonly Dictionary<Player, PachinkoField> spawnedFieldsByPlayer = new();
+    public IReadOnlyDictionary<Player, PachinkoField> SpawnedFields => spawnedFieldsByPlayer;
+
+    public IReadOnlyDictionary<Player, Canon> SpawnedCanons =>
+        gameSurface != null ? gameSurface.SpawnedCanons : null;
 
     private void ClearPachinkoFieldsAndBalls()
     {
@@ -380,6 +387,7 @@ public sealed class GameHandler : MonoBehaviour
         }
 
         spawnedFieldObjects.Clear();
+        spawnedFieldsByPlayer.Clear();
     }
 
     public Action<Player> onPlayerEliminated;
