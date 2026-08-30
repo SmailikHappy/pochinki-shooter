@@ -23,7 +23,7 @@ namespace Pochinki.Networking.Game.Editor
         public const string ScenePath = "Assets/Scenes/SampleScene.unity";
         public const string GameplayBallPrefabPath = "Assets/GameObjects/Prefabs/PachinkoBall.prefab";
         public const string GameplayBulletPrefabPath = "Assets/GameObjects/Prefabs/Bullet.prefab";
-        public const string PachinkoVisibilityMaterialPath = "Assets/Materials/MV_Basic_Yellow.mat";
+        public const string PachinkoVisibilityMaterialPath = "Assets/Materials/M_Placeholder 1.mat";
         public const string SessionPlayerPrefabPath = RootPath + "/Prefabs/NetworkSessionPlayer.prefab";
         public const string PrefabListPath = RootPath + "/Settings/GameNetworkPrefabs.asset";
 

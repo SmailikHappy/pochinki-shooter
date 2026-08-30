@@ -37,6 +37,8 @@ public class PachinkoBall : MonoBehaviour
         _spawnPosition = field != null ? field.SpawnPosition : transform.position;
         _initialized = true;
 
+        ApplyOwnerColor();
+
         if (!IsPersistentNetworkBall)
         {
             _networkBall?.PrepareStandaloneSimulation();
@@ -46,6 +48,16 @@ public class PachinkoBall : MonoBehaviour
         {
             ResetForNextRun();
         }
+    }
+
+    private void ApplyOwnerColor()
+    {
+        if (field == null || field.Owner == null || field.Owner.playerMaterial == null)
+            return;
+
+        Renderer ballRenderer = GetComponent<Renderer>();
+        if (ballRenderer != null)
+            ballRenderer.material = field.Owner.playerMaterial;
     }
 
     private void ApplyRandomLaunchForce()
