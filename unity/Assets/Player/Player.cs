@@ -8,6 +8,7 @@ public sealed class Player : MonoBehaviour
     public User user { get; private set; }
     [SerializeField] private TextMesh usernameText;
     public Material playerMaterial { get; private set; }
+    public bool IsReady { get; private set; }
 
     public void Bind(User user)
     {
@@ -23,6 +24,16 @@ public sealed class Player : MonoBehaviour
         {
             usernameText.text = displayName;
         }
+    }
+
+    public void SetReady(bool ready)
+    {
+        IsReady = ready;
+    }
+
+    public void ToggleReady()
+    {
+        SetReady(!IsReady);
     }
 
     public void SetMaterial(Material material)

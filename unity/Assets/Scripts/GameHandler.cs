@@ -56,14 +56,53 @@ public sealed class GameHandler : MonoBehaviour
         // the explicit start button.
     }
 
-    public void StartGame()
+    public bool AreAllPlayersReady()
+    {
+        if (players.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (Player player in players.Values)
+        {
+            if (player == null || !player.IsReady)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public void MarkPlayerReady(Player player)
+    {
+        if (player == null)
+        {
+            return;
+        }
+
+        player.SetReady(true);
+
+        if (AreAllPlayersReady())
+        {
+            StartGame();
+        }
+    }
+
+    public void StartGame(bool force = false)
     {
         if (gameState == GameState.InProgress)
         {
             return;
         }
 
+        if (!force && !AreAllPlayersReady())
+        {
+            return;
+        }
+
         RebuildGameplay();
+        HideLobbyButtons();
     }
 
     public void ApplyRoster(IReadOnlyList<DiscordUser> roster)
@@ -391,6 +430,17 @@ public sealed class GameHandler : MonoBehaviour
         }
     }
 
+    private void HideLobbyButtons()
+    {
+        GameUI[] gameUis = FindObjectsByType<GameUI>(FindObjectsInactive.Include);
+        foreach (GameUI gameUi in gameUis)
+        {
+            if (gameUi != null)
+            {
+                gameUi.HideLobbyButtons();
+            }
+        }
+    }
 
     private static Vector3 MirrorX(Vector3 position, float centerX)
     {

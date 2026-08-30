@@ -30,7 +30,7 @@ public class GameOverUI : MonoBehaviour
 
         bool lastPlayerStanding = GameHandler.instance.IsLastPlayerStanding();
 
-        if (!isLocalPlayer && !lastPlayerStanding)
+        if (/*!isLocalPlayer &&*/ !lastPlayerStanding)
             return; // серверная часть решает исход матча целиком — здесь только личный экран поражения
 
         gameOverText.SetActive(true);

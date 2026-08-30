@@ -4,20 +4,39 @@ using UnityEngine.UI;
 public sealed class GameUI : MonoBehaviour
 {
     [SerializeField] private Button startButton;
+    [SerializeField] private Button readyButton;
+
+    private Player boundPlayer;
 
     private void Reset()
     {
         if (startButton == null)
         {
-            startButton = GetComponentInChildren<Button>();
+            startButton = GetComponentsInChildren<Button>(true)[0];
+        }
+
+        if (readyButton == null)
+        {
+            var buttons = GetComponentsInChildren<Button>(true);
+            if (buttons.Length > 1)
+            {
+                readyButton = buttons[1];
+            }
         }
     }
 
     private void Awake()
     {
+        boundPlayer = GetComponentInParent<Player>() ?? GetComponent<Player>();
+
         if (startButton != null)
         {
-            startButton.onClick.AddListener(StartGame);
+            startButton.onClick.AddListener(OnStartClicked);
+        }
+
+        if (readyButton != null)
+        {
+            readyButton.onClick.AddListener(OnReadyClicked);
         }
     }
 
@@ -25,20 +44,62 @@ public sealed class GameUI : MonoBehaviour
     {
         if (startButton != null)
         {
-            startButton.onClick.RemoveListener(StartGame);
+            startButton.onClick.RemoveListener(OnStartClicked);
+        }
+
+        if (readyButton != null)
+        {
+            readyButton.onClick.RemoveListener(OnReadyClicked);
         }
     }
 
-    public void StartGame()
+    private void OnStartClicked()
+    {
+        if (GameHandler.instance == null)
+        {
+            return;
+        }
+
+        GameHandler.instance.StartGame(force: true);
+    }
+
+    private void OnReadyClicked()
+    {
+        if (boundPlayer == null)
+        {
+            boundPlayer = GetComponentInParent<Player>() ?? GetComponent<Player>();
+        }
+
+        if (boundPlayer == null)
+        {
+            return;
+        }
+
+        if (readyButton != null)
+        {
+            readyButton.gameObject.SetActive(false);
+        }
+
+        if (GameHandler.instance != null)
+        {
+            GameHandler.instance.MarkPlayerReady(boundPlayer);
+        }
+        else
+        {
+            boundPlayer.SetReady(true);
+        }
+    }
+
+    public void HideLobbyButtons()
     {
         if (startButton != null)
         {
             startButton.gameObject.SetActive(false);
         }
 
-        if (GameHandler.instance != null)
+        if (readyButton != null)
         {
-            GameHandler.instance.StartGame();
+            readyButton.gameObject.SetActive(false);
         }
     }
 }
