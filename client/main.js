@@ -2,6 +2,8 @@ import { DiscordSDK, Events } from '@discord/embedded-app-sdk';
 import './style.css';
 
 const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
+const unityBuildPath =
+  import.meta.env.VITE_UNITY_BUILD_PATH || '/ngo-spike/index.html';
 const statusElement = document.querySelector('#status');
 const errorElement = document.querySelector('#error');
 const guildAvatarElement = document.querySelector('#guild-avatar');
@@ -355,7 +357,7 @@ function launchUnity() {
     { once: true },
   );
 
-  unityFrameElement.src = '/unity-build/index.html';
+  unityFrameElement.src = unityBuildPath;
 }
 
 async function fetchCurrentGuild(accessToken, guildId) {
