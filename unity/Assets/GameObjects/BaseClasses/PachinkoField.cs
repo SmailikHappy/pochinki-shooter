@@ -4,10 +4,6 @@ using UnityEngine;
 
 public class PachinkoField : MonoBehaviour
 {
-    [Header("Visuals")]
-    [SerializeField] private Transform visualRoot;
-    [SerializeField] private Material gameplayMaterial;
-
     [Header("Ball")]
     [SerializeField] private GameObject ballPrefab;
     [SerializeField] private Transform spawnPoint;
@@ -47,24 +43,6 @@ public class PachinkoField : MonoBehaviour
                 ? localGravityDirection.normalized
                 : Vector3.down;
             return transform.TransformDirection(localDirection) * Mathf.Max(0f, gravityAcceleration);
-        }
-    }
-
-    private void Awake()
-    {
-        ApplyGameplayMaterial();
-    }
-
-    private void ApplyGameplayMaterial()
-    {
-        if (visualRoot == null || gameplayMaterial == null)
-            return;
-
-        foreach (Renderer renderer in visualRoot.GetComponentsInChildren<Renderer>(true))
-        {
-            // Score zones retain their authored red/green/pink materials.
-            if (renderer.GetComponent<ScoreZone>() == null)
-                renderer.sharedMaterial = gameplayMaterial;
         }
     }
 
