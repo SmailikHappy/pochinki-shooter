@@ -34,9 +34,11 @@ public class GameSurface : MonoBehaviour
     private GameObject canonParent;
 
     private readonly Dictionary<Player, Canon> spawnedCanons = new();
+    private readonly List<Pixel> spawnedPixels = new();
     public IReadOnlyDictionary<Player, Canon> SpawnedCanons => spawnedCanons;
+    public IReadOnlyList<Pixel> SpawnedPixels => spawnedPixels;
 
-    public bool SpawnGrid(IReadOnlyList<Player> players)
+    public bool SpawnGrid(IReadOnlyList<Player> players, IReadOnlyList<int> playerSlots = null)
     {
         if (pixelPrefab == null)
         {
@@ -84,8 +86,15 @@ public class GameSurface : MonoBehaviour
                 instance.transform.localScale = effectivePixelScale;
 
                 Pixel pixel = instance.GetComponent<Pixel>();
-                Player owner = GetPlayerForPixel(x, z, players);
-                pixel?.Init(owner);
+                int ownerIndex = GetPlayerIndexForPixel(x, z, players, playerSlots);
+                Player owner = ownerIndex >= 0 ? players[ownerIndex] : null;
+                int ownerSlot = ownerIndex >= 0
+                    ? ResolvePlayerSlot(ownerIndex, playerSlots)
+                    : -1;
+                pixel?.Init(owner, x * rows + z, ownerSlot);
+
+                if (pixel != null)
+                    spawnedPixels.Add(pixel);
             }
         }
 
@@ -100,14 +109,15 @@ public class GameSurface : MonoBehaviour
         for (int i = 0; i < activePlayerCount; i++)
         {
             Player player = players[i];
-            if (player == null || i >= cornerSpawns.Count)
+            int playerSlot = ResolvePlayerSlot(i, playerSlots);
+            if (player == null || playerSlot < 0 || playerSlot >= cornerSpawns.Count)
             {
                 if (player == null)
                     Debug.LogWarning($"Player {i} is null. Skipping spawn.");
                 continue;
             }
 
-            Transform spawnTransform = cornerSpawns[i];
+            Transform spawnTransform = cornerSpawns[playerSlot];
             GameObject canonInstance = Instantiate(canonPrefab, canonParent.transform);
 
             Vector3 canonLocalPosition = spawnTransform.localPosition;
@@ -123,7 +133,7 @@ public class GameSurface : MonoBehaviour
                 Vector3 facingDirection = -spawnTransform.localPosition; // от угла к центру поля
                 facingDirection.y = 0f;
                 rotator.SetFacingDirection(facingDirection.normalized);
-                rotator.SetPhaseByIndex(i, players.Count);
+                rotator.SetPhaseByIndex(playerSlot, 4);
             }
 
             Canon canon = canonInstance.GetComponent<Canon>();
@@ -131,11 +141,11 @@ public class GameSurface : MonoBehaviour
             spawnedCanons[player] = canon;
             Pixel masterPixel = spawnTransform.GetComponent<Pixel>();
             if (masterPixel != null)
-                masterPixel.MarkAsMasterPixel(player);
+                masterPixel.MarkAsMasterPixel(player, playerSlot);
         }
 
         return true;
-        }
+    }
 
     public List<Transform> GetSpawnTransforms()
     {
@@ -165,8 +175,18 @@ public class GameSurface : MonoBehaviour
 
     public Player GetPlayerForPixel(int x, int z, IReadOnlyList<Player> players)
     {
+        int playerIndex = GetPlayerIndexForPixel(x, z, players, null);
+        return playerIndex >= 0 ? players[playerIndex] : null;
+    }
+
+    private int GetPlayerIndexForPixel(
+        int x,
+        int z,
+        IReadOnlyList<Player> players,
+        IReadOnlyList<int> playerSlots)
+    {
         if (players == null || players.Count == 0)
-            return null;
+            return -1;
 
         int territory = Mathf.Max(1, startingTerritorySize);
 
@@ -179,14 +199,25 @@ public class GameSurface : MonoBehaviour
             if (players[i] == null)
                 continue;
 
-            bool withinX = Mathf.Abs(x - cornerX[i]) < territory;
-            bool withinZ = Mathf.Abs(z - cornerZ[i]) < territory;
+            int playerSlot = ResolvePlayerSlot(i, playerSlots);
+            if (playerSlot < 0 || playerSlot >= cornerX.Length)
+                continue;
+
+            bool withinX = Mathf.Abs(x - cornerX[playerSlot]) < territory;
+            bool withinZ = Mathf.Abs(z - cornerZ[playerSlot]) < territory;
 
             if (withinX && withinZ)
-                return players[i];
+                return i;
         }
 
-        return null; // клетка вне чьей-либо стартовой территории — нейтральная
+        return -1; // клетка вне чьей-либо стартовой территории — нейтральная
+    }
+
+    private static int ResolvePlayerSlot(int playerIndex, IReadOnlyList<int> playerSlots)
+    {
+        return playerSlots != null && playerIndex >= 0 && playerIndex < playerSlots.Count
+            ? playerSlots[playerIndex]
+            : playerIndex;
     }
 
     public void ClearChildren()
@@ -194,6 +225,7 @@ public class GameSurface : MonoBehaviour
         DestroyGeneratedContainer(ref pixelParent, PixelParentName);
         DestroyGeneratedContainer(ref canonParent, CanonParentName);
         spawnedCanons.Clear();
+        spawnedPixels.Clear();
     }
 
     private GameObject GetGeneratedContainer(GameObject cachedContainer, string containerName)
@@ -209,6 +241,25 @@ public class GameSurface : MonoBehaviour
     {
         spawnedCanons.Remove(player);
     }
+
+    public bool TryGetPixel(int gridIndex, out Pixel pixel)
+    {
+        if (gridIndex >= 0 && gridIndex < spawnedPixels.Count)
+        {
+            pixel = spawnedPixels[gridIndex];
+            return pixel != null;
+        }
+
+        pixel = null;
+        return false;
+    }
+
+    public void ApplyNetworkPixelOwner(int gridIndex, Player owner)
+    {
+        if (TryGetPixel(gridIndex, out Pixel pixel))
+            pixel.ApplyNetworkOwner(owner);
+    }
+
     private void DestroyGeneratedContainer(ref GameObject cachedContainer, string containerName)
     {
         GameObject container = GetGeneratedContainer(cachedContainer, containerName);

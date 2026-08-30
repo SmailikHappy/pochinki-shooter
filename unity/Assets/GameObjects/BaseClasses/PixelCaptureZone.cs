@@ -1,9 +1,11 @@
 using UnityEngine;
+using Pochinki.Networking.Game;
 
 [RequireComponent(typeof(Collider))]
 public class PixelCaptureZone : MonoBehaviour
 {
     [SerializeField] private PlayerOwnable pixelOwnable;
+    private Pixel pixel;
 
     private void Awake()
     {
@@ -11,10 +13,31 @@ public class PixelCaptureZone : MonoBehaviour
 
         if (pixelOwnable == null)
             pixelOwnable = GetComponentInParent<PlayerOwnable>();
+
+        pixel = GetComponentInParent<Pixel>();
     }
 
     private void OnTriggerEnter(Collider other)
     {
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
+        if (bootstrap != null && bootstrap.ControlsGameplayRoster)
+        {
+            if (!bootstrap.IsServer || pixel == null)
+                return;
+
+            NetworkBullet networkBullet = other.GetComponent<NetworkBullet>();
+            if (networkBullet == null)
+                return;
+
+            if (NetworkMatchState.Instance != null &&
+                NetworkMatchState.Instance.TryCapturePixel(pixel.GridIndex, networkBullet.PlayerSlot))
+            {
+                other.GetComponent<Bullet>()?.DestroyBullet();
+            }
+
+            return;
+        }
+
         PlayerOwnable bulletOwnable = other.GetComponent<PlayerOwnable>();
         if (bulletOwnable == null)
             return;

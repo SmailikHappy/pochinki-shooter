@@ -1,6 +1,7 @@
 // GameHandler.cs
 using System;
 using System.Collections.Generic;
+using Pochinki.Networking.Game;
 using UnityEngine;
 
 public sealed class GameHandler : MonoBehaviour
@@ -19,6 +20,9 @@ public sealed class GameHandler : MonoBehaviour
     // handled atomically by ApplyRoster, not one event at a time.
     public Action<User> onUserJoined;
     public Action<User> onUserLeft;
+    public Action<Player> onPlayerEliminated;
+    public Action<Player> onMatchEnded;
+    public Action onMatchReset;
 
     [SerializeField] private GameObject playerPrefab;
     [SerializeField] private GameSurface gameSurface;
@@ -33,9 +37,45 @@ public sealed class GameHandler : MonoBehaviour
     private readonly Dictionary<string, Player> players = new(StringComparer.Ordinal);
     private readonly List<string> activeRosterIds = new();
     private readonly List<GameObject> spawnedFieldObjects = new();
+    private readonly Dictionary<string, int> networkSlotsByUser = new(StringComparer.Ordinal);
+    private readonly Dictionary<int, PachinkoField> spawnedFieldsBySlot = new();
     private bool warnedAboutPlayerLimit;
+    private bool networkRosterActive;
+    private byte appliedEliminatedMask;
+    private NetworkMatchPhase appliedMatchPhase = NetworkMatchPhase.WaitingForPlayers;
+    private int appliedWinnerSlot = -1;
 
     public GameState gameState { get; private set; } = GameState.WaitingForPlayers;
+    public GameSurface Surface => gameSurface;
+    public int ActivePlayerCount => activeRosterIds.Count;
+    public int PixelCount => gameSurface?.SpawnedPixels.Count ?? 0;
+    public bool IsGameplayReadyForNetworkState => gameSurface != null &&
+        (activeRosterIds.Count == 0 || gameSurface.SpawnedPixels.Count > 0);
+
+    public IReadOnlyList<int> ActiveNetworkSlots
+    {
+        get
+        {
+            var slots = new List<int>(networkSlotsByUser.Values);
+            slots.Sort();
+            return slots;
+        }
+    }
+
+    public string NetworkRosterSignature
+    {
+        get
+        {
+            var signature = new System.Text.StringBuilder();
+            foreach (string userId in activeRosterIds)
+            {
+                if (networkSlotsByUser.TryGetValue(userId, out int slot))
+                    signature.Append(slot).Append(':').Append(userId).Append('|');
+            }
+
+            return signature.ToString();
+        }
+    }
 
     private void Awake()
     {
@@ -58,8 +98,79 @@ public sealed class GameHandler : MonoBehaviour
 
     public void ApplyRoster(IReadOnlyList<DiscordUser> roster)
     {
-        List<DiscordUser> orderedUsers = BuildOrderedRoster(roster);
-        bool rosterChanged = HasRosterChanged(orderedUsers);
+        NetworkGameBootstrap networkBootstrap = NetworkGameBootstrap.Instance;
+        if (networkBootstrap != null && networkBootstrap.ControlsGameplayRoster)
+        {
+            return;
+        }
+
+        networkRosterActive = false;
+        networkSlotsByUser.Clear();
+        ApplyOrderedRoster(BuildOrderedRoster(roster), forceRebuild: false);
+    }
+
+    public void ApplyNetworkRoster(IReadOnlyList<DiscordUser> roster, IReadOnlyList<int> slots)
+    {
+        var entries = new List<(DiscordUser User, int Slot)>();
+        var seenUsers = new HashSet<string>(StringComparer.Ordinal);
+        var seenSlots = new HashSet<int>();
+        int entryCount = Mathf.Min(roster?.Count ?? 0, slots?.Count ?? 0);
+
+        for (int index = 0; index < entryCount; index++)
+        {
+            DiscordUser user = roster[index];
+            int slot = slots[index];
+
+            if (user == null ||
+                string.IsNullOrWhiteSpace(user.UniqueId) ||
+                slot < 0 ||
+                slot >= MaxPlayers ||
+                !seenUsers.Add(user.UniqueId) ||
+                !seenSlots.Add(slot))
+            {
+                continue;
+            }
+
+            entries.Add((user, slot));
+        }
+
+        entries.Sort((left, right) => left.Slot.CompareTo(right.Slot));
+
+        var orderedUsers = new List<DiscordUser>(entries.Count);
+        var updatedSlots = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach ((DiscordUser user, int slot) in entries)
+        {
+            orderedUsers.Add(user);
+            updatedSlots[user.UniqueId] = slot;
+        }
+
+        bool slotsChanged = networkSlotsByUser.Count != updatedSlots.Count;
+        if (!slotsChanged)
+        {
+            foreach (KeyValuePair<string, int> pair in updatedSlots)
+            {
+                if (!networkSlotsByUser.TryGetValue(pair.Key, out int previousSlot) ||
+                    previousSlot != pair.Value)
+                {
+                    slotsChanged = true;
+                    break;
+                }
+            }
+        }
+
+        networkRosterActive = true;
+        networkSlotsByUser.Clear();
+        foreach (KeyValuePair<string, int> pair in updatedSlots)
+        {
+            networkSlotsByUser[pair.Key] = pair.Value;
+        }
+
+        ApplyOrderedRoster(orderedUsers, slotsChanged);
+    }
+
+    private void ApplyOrderedRoster(List<DiscordUser> orderedUsers, bool forceRebuild)
+    {
+        bool rosterChanged = forceRebuild || HasRosterChanged(orderedUsers);
 
         RemovePlayersMissingFrom(orderedUsers);
 
@@ -224,7 +335,18 @@ public sealed class GameHandler : MonoBehaviour
         }
 
         List<Player> playersForGrid = GetPlayersInRosterOrder();
-        if (!gameSurface.SpawnGrid(playersForGrid))
+        var slotsForGrid = new List<int>(playersForGrid.Count);
+        for (int index = 0; index < playersForGrid.Count; index++)
+        {
+            Player player = playersForGrid[index];
+            int slot = networkRosterActive && player?.user != null &&
+                networkSlotsByUser.TryGetValue(player.user.UniqueId, out int assignedSlot)
+                    ? assignedSlot
+                    : index;
+            slotsForGrid.Add(slot);
+        }
+
+        if (!gameSurface.SpawnGrid(playersForGrid, slotsForGrid))
         {
             gameState = GameState.WaitingForPlayers;
             return;
@@ -233,12 +355,14 @@ public sealed class GameHandler : MonoBehaviour
         if (playersForGrid.Count == 0)
         {
             gameState = GameState.WaitingForPlayers;
+            NetworkMatchState.Instance?.HandleGameplayRebuilt();
             return;
         }
 
         SpawnPachinkoFields(playersForGrid);
         gameState = GameState.InProgress;
         RefreshCanonInputOwnership();
+        NetworkMatchState.Instance?.HandleGameplayRebuilt();
     }
 
     private List<Player> GetPlayersInRosterOrder()
@@ -272,14 +396,26 @@ public sealed class GameHandler : MonoBehaviour
 
         Quaternion rotationOffset = Quaternion.Euler(pachinkoFieldRotationOffset);
 
-        for (int index = 0; index < playersForGrid.Count && index < pachinkoSpawnPoints.Length; index++)
+        for (int index = 0; index < playersForGrid.Count; index++)
         {
             Player player = playersForGrid[index];
-            Transform spawnPoint = pachinkoSpawnPoints[index];
+            int playerSlot = networkRosterActive &&
+                player?.user != null &&
+                networkSlotsByUser.TryGetValue(player.user.UniqueId, out int assignedSlot)
+                    ? assignedSlot
+                    : index;
+
+            if (playerSlot < 0 || playerSlot >= pachinkoSpawnPoints.Length)
+            {
+                Debug.LogWarning($"GameHandler: Pachinko slot {playerSlot} has no spawn point.", this);
+                continue;
+            }
+
+            Transform spawnPoint = pachinkoSpawnPoints[playerSlot];
 
             if (spawnPoint == null)
             {
-                Debug.LogWarning($"GameHandler: pachinkoSpawnPoints[{index}] is not assigned.", this);
+                Debug.LogWarning($"GameHandler: pachinkoSpawnPoints[{playerSlot}] is not assigned.", this);
                 continue;
             }
 
@@ -297,9 +433,12 @@ public sealed class GameHandler : MonoBehaviour
             }
 
             gameSurface.SpawnedCanons.TryGetValue(player, out Canon canon);
-            field.Initialize(player, canon);
+            field.Initialize(player, canon, playerSlot);
             spawnedFieldObjects.Add(fieldObject);
+            spawnedFieldsBySlot[playerSlot] = field;
         }
+
+        NetworkGameBootstrap.Instance?.RebindPachinkoBalls();
     }
 
     private void ClearPachinkoFieldsAndBalls()
@@ -310,6 +449,12 @@ public sealed class GameHandler : MonoBehaviour
         {
             if (ball != null)
             {
+                if (ball.IsPersistentNetworkBall)
+                {
+                    ball.DetachFromField();
+                    continue;
+                }
+
                 ball.gameObject.SetActive(false);
                 Destroy(ball.gameObject);
             }
@@ -325,13 +470,21 @@ public sealed class GameHandler : MonoBehaviour
         }
 
         spawnedFieldObjects.Clear();
+        spawnedFieldsBySlot.Clear();
     }
 
-    public Action<Player> onPlayerEliminated;
+    public bool TryGetPachinkoFieldForSlot(int slot, out PachinkoField field)
+    {
+        return spawnedFieldsBySlot.TryGetValue(slot, out field) && field != null;
+    }
 
     public void NotifyMasterPixelCaptured(Player eliminatedPlayer)
     {
         if (eliminatedPlayer == null)
+            return;
+
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
+        if (bootstrap != null && bootstrap.ControlsGameplayRoster)
             return;
 
         EliminatePlayer(eliminatedPlayer);
@@ -347,6 +500,105 @@ public sealed class GameHandler : MonoBehaviour
             Destroy(canon.gameObject);
 
         gameSurface.RemoveCanon(eliminatedPlayer);
+    }
+
+    public bool TryGetPlayerForSlot(int slot, out Player player)
+    {
+        foreach (KeyValuePair<string, int> pair in networkSlotsByUser)
+        {
+            if (pair.Value == slot && players.TryGetValue(pair.Key, out player) && player != null)
+                return true;
+        }
+
+        player = null;
+        return false;
+    }
+
+    public bool TryGetSlotForPlayer(Player player, out int slot)
+    {
+        string userId = player?.user?.UniqueId;
+        if (!string.IsNullOrEmpty(userId) && networkSlotsByUser.TryGetValue(userId, out slot))
+            return true;
+
+        slot = -1;
+        return false;
+    }
+
+    public bool IsNetworkSlotActive(int slot)
+    {
+        return TryGetPlayerForSlot(slot, out _);
+    }
+
+    public bool TryGetCanonForSlot(int slot, out Canon canon)
+    {
+        canon = null;
+        return TryGetPlayerForSlot(slot, out Player player) &&
+            gameSurface != null &&
+            gameSurface.SpawnedCanons.TryGetValue(player, out canon) &&
+            canon != null;
+    }
+
+    public bool TryGetPixel(int gridIndex, out Pixel pixel)
+    {
+        if (gameSurface != null)
+            return gameSurface.TryGetPixel(gridIndex, out pixel);
+
+        pixel = null;
+        return false;
+    }
+
+    public void ApplyNetworkCounterState(int slot, int value, bool releasing, bool triggerEvent)
+    {
+        if (!TryGetPachinkoFieldForSlot(slot, out PachinkoField field))
+            return;
+
+        field.Counter?.ApplyNetworkState(value, releasing);
+        field.SetZonesActive(!releasing);
+
+        if (triggerEvent)
+            field.Counter?.TriggerNetworkEvent();
+    }
+
+    public void ApplyNetworkPixelOwner(int gridIndex, int ownerSlot)
+    {
+        Player owner = ownerSlot >= 0 && TryGetPlayerForSlot(ownerSlot, out Player resolvedOwner)
+            ? resolvedOwner
+            : null;
+        gameSurface?.ApplyNetworkPixelOwner(gridIndex, owner);
+    }
+
+    public void ApplyNetworkMatchOutcome(
+        byte eliminatedMask,
+        int winnerSlot,
+        NetworkMatchPhase matchPhase)
+    {
+        byte newlyEliminated = (byte)(eliminatedMask & ~appliedEliminatedMask);
+        for (int slot = 0; slot < MaxPlayers; slot++)
+        {
+            if ((newlyEliminated & (1 << slot)) == 0 ||
+                !TryGetPlayerForSlot(slot, out Player eliminatedPlayer))
+                continue;
+
+            EliminatePlayer(eliminatedPlayer);
+            onPlayerEliminated?.Invoke(eliminatedPlayer);
+        }
+
+        if (matchPhase != NetworkMatchPhase.GameOver &&
+            appliedMatchPhase == NetworkMatchPhase.GameOver)
+        {
+            onMatchReset?.Invoke();
+        }
+
+        if (matchPhase == NetworkMatchPhase.GameOver &&
+            (appliedMatchPhase != NetworkMatchPhase.GameOver || appliedWinnerSlot != winnerSlot))
+        {
+            TryGetPlayerForSlot(winnerSlot, out Player winner);
+            onMatchEnded?.Invoke(winner);
+        }
+
+        appliedEliminatedMask = eliminatedMask;
+        appliedWinnerSlot = winnerSlot;
+        appliedMatchPhase = matchPhase;
     }
 
     public void RefreshInputOwnership()

@@ -22,10 +22,6 @@ const proxy = {
     target: 'http://localhost:3001',
     changeOrigin: true,
   },
-  '/ws': {
-    target: 'ws://localhost:3001',
-    ws: true,
-  },
   // Unity Transport speaks its binary NGO protocol over this WebSocket.
   // Keeping it on the Vite origin lets the same WebGL build use ws:// locally
   // and wss:// through Cloudflare/Discord without hard-coded public URLs. The

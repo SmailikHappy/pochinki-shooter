@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Pochinki.Networking.Game;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -7,7 +8,7 @@ public class PachinkoCounter : MonoBehaviour
 {
     [Header("Counter")]
     [SerializeField] private int startValue = 1;
-    [SerializeField, Min(1)] private int maxValue = 2147483647;
+    [SerializeField, Min(1)] private int maxValue = 128;
 
     [Tooltip("Задержка между каждым выпускаемым выстрелом.")]
     [SerializeField] private float shotInterval = 0.15f;
@@ -25,6 +26,7 @@ public class PachinkoCounter : MonoBehaviour
 
     private int currentValue;
     private bool isReleasing;
+    private bool networkControlled;
 
     /// <summary>
     /// Текущее значение счётчика.
@@ -39,6 +41,23 @@ public class PachinkoCounter : MonoBehaviour
     public int LastReleaseAmount { get; private set; }
 
     public bool IsReleasing => isReleasing;
+
+    public void ConfigureNetworkMode(bool controlledByServer)
+    {
+        networkControlled = controlledByServer;
+    }
+
+    public void ApplyNetworkState(int value, bool releasing)
+    {
+        currentValue = Mathf.Clamp(value, 0, Mathf.Min(maxValue, NetworkMatchState.MaxCounterValue));
+        isReleasing = releasing;
+        NotifyCounterChanged();
+    }
+
+    public void TriggerNetworkEvent()
+    {
+        OnEventTriggered?.Invoke();
+    }
 
     private void Awake()
     {
@@ -57,7 +76,7 @@ public class PachinkoCounter : MonoBehaviour
     /// </summary>
     public void Multiply(int multiplier = 2)
     {
-        if (isReleasing)
+        if (networkControlled || isReleasing)
             return;
 
         multiplier = Mathf.Max(1, multiplier);
@@ -72,7 +91,7 @@ public class PachinkoCounter : MonoBehaviour
     /// </summary>
     public void Release()
     {
-        if (isReleasing)
+        if (networkControlled || isReleasing)
             return;
 
         StartCoroutine(ReleaseRoutine());
@@ -117,7 +136,7 @@ public class PachinkoCounter : MonoBehaviour
     /// </summary>
     public void TriggerEvent()
     {
-        if (isReleasing)
+        if (networkControlled || isReleasing)
             return;
 
         OnEventTriggered?.Invoke();

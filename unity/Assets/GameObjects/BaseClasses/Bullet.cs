@@ -1,3 +1,4 @@
+using Pochinki.Networking.Game;
 using UnityEngine;
 
 [RequireComponent(typeof(PlayerOwnable))]
@@ -16,16 +17,20 @@ public class Bullet : MonoBehaviour
     private float speed;
     private Rigidbody _rb;
     private Collider _collider;
+    private NetworkBullet _networkBullet;
     private Vector3 _spawnPosition;
     private Vector3 _lastPhysicsVelocity;
+    private float _destroyAt;
+    private bool _simulationActive;
 
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
         _collider = GetComponent<Collider>();
+        _networkBullet = GetComponent<NetworkBullet>();
 
         _rb.useGravity = false;
-        _rb.isKinematic = false;
+        _rb.isKinematic = _networkBullet != null;
         _rb.linearDamping = 0f;
         _rb.angularDamping = 0f;
         _rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
@@ -41,38 +46,79 @@ public class Bullet : MonoBehaviour
         }
 
         _spawnPosition = transform.position;
-        Destroy(gameObject, Mathf.Max(0.1f, maxLifetimeSeconds));
     }
 
     public void Init(Player owner, Vector3 direction, float speed, float scale)
     {
-        Debug.Log($"Bullet Init: Direction: {direction}, Speed: {speed}, Scale: {scale}, Owner: {owner.user.UniqueId}");
-        GetComponent<PlayerOwnable>().SetOwner(owner);
+        BindNetworkOwner(owner);
         this.direction = direction.sqrMagnitude > 0f ? direction.normalized : transform.right;
         this.speed = Mathf.Max(0f, speed);
         transform.localScale = new Vector3(scale, scale, scale);
 
         _spawnPosition = transform.position;
+        _destroyAt = Time.time + Mathf.Max(0.1f, maxLifetimeSeconds);
+        _simulationActive = true;
+        _rb.isKinematic = false;
         _rb.linearVelocity = this.direction * this.speed;
         _lastPhysicsVelocity = _rb.linearVelocity;
+    }
 
-        GetComponent<MeshRenderer>().material = owner.playerMaterial;
+    public void PrepareNetworkSpawn(Player owner, float scale)
+    {
+        BindNetworkOwner(owner);
+        transform.localScale = Vector3.one * Mathf.Max(0.001f, scale);
+        _spawnPosition = transform.position;
+    }
+
+    public void BeginServerNetworkSimulation(Vector3 launchDirection, float launchSpeed)
+    {
+        direction = launchDirection.sqrMagnitude > 0f ? launchDirection.normalized : transform.right;
+        speed = Mathf.Max(0f, launchSpeed);
+        _spawnPosition = transform.position;
+        _destroyAt = Time.time + Mathf.Max(0.1f, maxLifetimeSeconds);
+        _simulationActive = true;
+        _rb.isKinematic = false;
+        _rb.linearVelocity = direction * speed;
+        _lastPhysicsVelocity = _rb.linearVelocity;
+    }
+
+    public void BindNetworkOwner(Player owner)
+    {
+        GetComponent<PlayerOwnable>().SetOwner(owner);
+
+        if (owner != null && owner.playerMaterial != null)
+            GetComponent<MeshRenderer>().sharedMaterial = owner.playerMaterial;
     }
 
     private void Update()
     {
+        if (!_simulationActive)
+            return;
+
+        if (_networkBullet != null && (!_networkBullet.IsSpawned || !_networkBullet.IsServer))
+            return;
+
         float maxDistance = Mathf.Max(1f, maxDistanceFromSpawn);
-        if ((transform.position - _spawnPosition).sqrMagnitude > maxDistance * maxDistance)
-            Destroy(gameObject);
+        if ((transform.position - _spawnPosition).sqrMagnitude > maxDistance * maxDistance ||
+            Time.time >= _destroyAt)
+            DestroyBullet();
     }
 
     private void FixedUpdate()
     {
+        if (!_simulationActive ||
+            (_networkBullet != null && (!_networkBullet.IsSpawned || !_networkBullet.IsServer)))
+            return;
+
         _lastPhysicsVelocity = _rb.linearVelocity;
     }
 
     private void OnCollisionEnter(Collision collision)
     {
+        if (!_simulationActive ||
+            (_networkBullet != null && (!_networkBullet.IsSpawned || !_networkBullet.IsServer)))
+            return;
+
         if (((1 << collision.gameObject.layer) & wallLayer) == 0)
             return;
 
@@ -93,5 +139,18 @@ public class Bullet : MonoBehaviour
 
         _rb.linearVelocity = direction * speed;
         _lastPhysicsVelocity = _rb.linearVelocity;
+    }
+
+    public void DestroyBullet()
+    {
+        _simulationActive = false;
+
+        if (_networkBullet != null && _networkBullet.IsSpawned)
+        {
+            _networkBullet.DespawnOnServer();
+            return;
+        }
+
+        Destroy(gameObject);
     }
 }

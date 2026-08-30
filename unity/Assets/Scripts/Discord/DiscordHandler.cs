@@ -1,46 +1,29 @@
 // DiscordHandler.cs
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
+using Pochinki.Networking.Game;
 using UnityEngine;
 using UnityEngine.Scripting;
 
 [Preserve]
 public sealed class DiscordHandler : MonoBehaviour
 {
-    public static DiscordHandler Instance { get; private set; }
-
-    public string LocalUserId { get; private set; } = string.Empty;
-
-    private readonly Dictionary<string, DiscordUser> _users = new(StringComparer.Ordinal);
-
-    #if UNITY_WEBGL && !UNITY_EDITOR
-        [DllImport("__Internal")]
-        private static extern void PochinkiSendInputJson(string json);
-    #endif
-
     [Serializable]
-    private sealed class ParticipantJson
-    {
-        public string userId;
-        public string username;
-        public float mouseX;
-        public float mouseY;
-    }
-
-    [Serializable]
-    private sealed class SnapshotJson
+    private sealed class DiscordSessionJson
     {
         public string selfUserId;
-        public ParticipantJson[] participants = Array.Empty<ParticipantJson>();
+        public string selfUsername;
+        public string instanceId;
     }
 
-    [Serializable]
-    private sealed class LocalInputJson
-    {
-        public float mouseX;
-        public float mouseY;
-    }
+    public static DiscordHandler Instance { get; private set; }
+    public string LocalUserId { get; private set; } = string.Empty;
+
+    private readonly Dictionary<string, DiscordUser> users = new(StringComparer.Ordinal);
+
+#if UNITY_EDITOR
+    private string[] debugPlayerIds;
+#endif
 
     private void Awake()
     {
@@ -54,156 +37,98 @@ public sealed class DiscordHandler : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
-    public void SetLocalUserIdForDebug(string userId)
-    {
-        LocalUserId = userId;
-    }
-
-    #if UNITY_EDITOR
-    private string[] _debugPlayerIds;
-    #endif
-
     private void Start()
     {
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
         const int debugPlayerCount = 4;
-        _debugPlayerIds = new string[debugPlayerCount];
+        debugPlayerIds = new string[debugPlayerCount];
 
-        for (int i = 0; i < debugPlayerCount; i++)
+        for (int index = 0; index < debugPlayerCount; index++)
         {
-            string id = System.Guid.NewGuid().ToString("N");
-            _debugPlayerIds[i] = id;
+            string id = Guid.NewGuid().ToString("N");
+            debugPlayerIds[index] = id;
 
-            var user = new DiscordUser(id, $"EditorTester{i}", isSelf: i == 0);
-            _users[id] = user;
+            var user = new DiscordUser(id, $"EditorTester{index}", isSelf: index == 0);
+            users[id] = user;
         }
 
-        LocalUserId = _debugPlayerIds[0];
+        LocalUserId = debugPlayerIds[0];
         ApplyRosterToGame();
 
-        foreach (var user in _users.Values)
+        foreach (DiscordUser user in users.Values)
             GameHandler.instance?.onUserJoined?.Invoke(user);
-    #endif
+#endif
     }
 
-    #if UNITY_EDITOR
+#if UNITY_EDITOR
     private void Update()
     {
-        if (_debugPlayerIds == null)
+        if (debugPlayerIds == null)
             return;
 
-        for (int i = 0; i < _debugPlayerIds.Length; i++)
+        for (int index = 0; index < debugPlayerIds.Length; index++)
         {
-            UnityEngine.InputSystem.Key key = UnityEngine.InputSystem.Key.Digit1 + i;
+            UnityEngine.InputSystem.Key key = UnityEngine.InputSystem.Key.Digit1 + index;
             if (UnityEngine.InputSystem.Keyboard.current[key].wasPressedThisFrame)
             {
-                SetLocalUserIdForDebug(_debugPlayerIds[i]);
+                SetLocalUserIdForDebug(debugPlayerIds[index]);
                 GameHandler.instance?.RefreshInputOwnership();
             }
         }
     }
-    #endif
+#endif
 
-    // Called directly by the WebGL template through Unity SendMessage.
-    [Preserve]
-    public void ReceiveSnapshot(string json)
+    public void SetLocalUserIdForDebug(string userId)
     {
-        if (string.IsNullOrWhiteSpace(json)) return;
+        LocalUserId = userId ?? string.Empty;
+    }
 
-        SnapshotJson snapshot;
+    // Called by the authored WebGL template after Discord OAuth completes.
+    [Preserve]
+    public void ReceiveSession(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+
+        DiscordSessionJson session;
         try
         {
-            snapshot = JsonUtility.FromJson<SnapshotJson>(json);
+            session = JsonUtility.FromJson<DiscordSessionJson>(json);
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            Debug.LogWarning($"[DiscordHandler] Invalid snapshot: {e.Message}");
+            Debug.LogWarning($"[DiscordHandler] Invalid Discord session: {exception.Message}");
             return;
         }
 
-        if (snapshot == null) return;
-        snapshot.participants ??= Array.Empty<ParticipantJson>();
-        LocalUserId = snapshot.selfUserId ?? string.Empty;
-
-        var activeIds = new HashSet<string>(StringComparer.Ordinal);
-        var joinedUsers = new List<DiscordUser>();
-
-        foreach (var p in snapshot.participants)
+        if (session == null ||
+            string.IsNullOrWhiteSpace(session.selfUserId) ||
+            string.IsNullOrWhiteSpace(session.instanceId))
         {
-            if (p == null || string.IsNullOrWhiteSpace(p.userId)) continue;
-            if (!activeIds.Add(p.userId)) continue;
-
-            if (!_users.TryGetValue(p.userId, out var user))
-            {
-                user = new DiscordUser(p.userId, p.username, p.userId == LocalUserId);
-                _users[p.userId] = user;
-                joinedUsers.Add(user);
-            }
-
-            user.Username = string.IsNullOrWhiteSpace(p.username) ? user.Username : p.username;
-            user.MouseX = p.mouseX;
-            user.MouseY = p.mouseY;
-            user.IsSelf = p.userId == LocalUserId;
+            Debug.LogWarning("[DiscordHandler] Discord session is incomplete.", this);
+            return;
         }
 
-        List<string> toRemove = null;
-        foreach (var id in _users.Keys)
-        {
-            if (!activeIds.Contains(id))
-            {
-                (toRemove ??= new List<string>()).Add(id);
-            }
-        }
-
-        var leftUsers = new List<DiscordUser>();
-        if (toRemove != null)
-        {
-            foreach (var id in toRemove)
-            {
-                if (_users.Remove(id, out var user))
-                {
-                    leftUsers.Add(user);
-                }
-            }
-        }
-
-        // Apply the complete roster once. This prevents the game from starting
-        // after the first participant while the rest of the same snapshot is
-        // still being parsed.
-        ApplyRosterToGame();
-
-        foreach (var user in joinedUsers)
-        {
-            GameHandler.instance?.onUserJoined?.Invoke(user);
-        }
-
-        foreach (var user in leftUsers)
-        {
-            GameHandler.instance?.onUserLeft?.Invoke(user);
-        }
+        LocalUserId = session.selfUserId;
+        NetworkGameBootstrap.Instance?.SubmitIdentitySession(
+            session.selfUserId,
+            session.selfUsername,
+            session.instanceId);
     }
 
     public void ApplyRosterToGame()
     {
-        var roster = new List<DiscordUser>(_users.Values);
+        NetworkGameBootstrap networkBootstrap = NetworkGameBootstrap.Instance;
+        if (networkBootstrap != null && networkBootstrap.ControlsGameplayRoster)
+            return;
+
+        var roster = new List<DiscordUser>(users.Values);
         GameHandler.instance?.ApplyRoster(roster);
-    }
-
-    public void SendLocalInput(float mouseX, float mouseY)
-    {
-        if (_users.TryGetValue(LocalUserId, out var localUser))
-        {
-            localUser.MouseX = mouseX;
-            localUser.MouseY = mouseY;
-        }
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-        PochinkiSendInputJson(JsonUtility.ToJson(new LocalInputJson { mouseX = mouseX, mouseY = mouseY }));
-#endif
     }
 
     private void OnDestroy()
     {
-        if (Instance == this) Instance = null;
+        if (Instance == this)
+            Instance = null;
     }
 }

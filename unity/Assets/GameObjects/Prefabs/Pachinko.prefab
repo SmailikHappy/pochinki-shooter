@@ -4166,6 +4166,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cff673a42807c404eb22a36a7752049b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PachinkoField
+  visualRoot: {fileID: 6754436865264662109}
+  gameplayMaterial: {fileID: 2100000, guid: 2e795d7ba39c13c42aea93975186b7e6, type: 2}
   ballPrefab: {fileID: 7756817029176902996, guid: 4a9ded9ff3f345898ca6f5b740beea32, type: 3}
   spawnPoint: {fileID: 3966135966587860483}
   respawnDelay: 0.3
@@ -4188,7 +4190,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PachinkoCounter
   startValue: 1
-  maxValue: 2147483647
+  maxValue: 128
   shotInterval: 0.15
   field: {fileID: 8033922611779142500}
   OnCounterChanged:

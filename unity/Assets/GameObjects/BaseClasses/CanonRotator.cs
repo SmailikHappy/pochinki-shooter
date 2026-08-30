@@ -1,4 +1,6 @@
 using UnityEngine;
+using Unity.Netcode;
+using Pochinki.Networking.Game;
 
 public class CanonRotator : MonoBehaviour
 {
@@ -20,7 +22,12 @@ public class CanonRotator : MonoBehaviour
     private void Update()
     {
         float phaseTime = phaseOffsetDegrees / rotationSpeed;
-        float t = (Time.time + phaseTime) * rotationSpeed;
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
+        double clock = bootstrap != null && bootstrap.ControlsGameplayRoster &&
+            bootstrap.IsListening && NetworkManager.Singleton != null
+                ? NetworkManager.Singleton.ServerTime.Time
+                : Time.timeAsDouble;
+        float t = (float)((clock + phaseTime) * rotationSpeed);
         float angle = Mathf.PingPong(t, rotationRange);
 
         transform.localRotation = _baseRotation * Quaternion.AngleAxis(angle, rotationAxis);

@@ -1,8 +1,13 @@
 using System.Collections;
+using Pochinki.Networking.Game;
 using UnityEngine;
 
 public class PachinkoField : MonoBehaviour
 {
+    [Header("Visuals")]
+    [SerializeField] private Transform visualRoot;
+    [SerializeField] private Material gameplayMaterial;
+
     [Header("Ball")]
     [SerializeField] private GameObject ballPrefab;
     [SerializeField] private Transform spawnPoint;
@@ -23,7 +28,16 @@ public class PachinkoField : MonoBehaviour
     private Canon linkedCanon;
     private bool _initialized;
     private PachinkoBall _activeBall;
+    private PachinkoBall _ballPendingReset;
     private Coroutine _respawnRoutine;
+
+    public int PlayerSlot { get; private set; } = -1;
+    public Vector3 SpawnPosition => spawnPoint != null ? spawnPoint.position : transform.position;
+    public Quaternion SpawnRotation => spawnPoint != null ? spawnPoint.rotation : transform.rotation;
+    public PachinkoCounter Counter => counter;
+    public int MultiplierValue => zoneMultiplier != null
+        ? Mathf.Max(1, Mathf.RoundToInt(zoneMultiplier.MultiplierValue))
+        : 2;
 
     public Vector3 GravityAcceleration
     {
@@ -36,15 +50,38 @@ public class PachinkoField : MonoBehaviour
         }
     }
 
-    public void Initialize(Player owner, Canon canon)
+    private void Awake()
+    {
+        ApplyGameplayMaterial();
+    }
+
+    private void ApplyGameplayMaterial()
+    {
+        if (visualRoot == null || gameplayMaterial == null)
+            return;
+
+        foreach (Renderer renderer in visualRoot.GetComponentsInChildren<Renderer>(true))
+        {
+            // Score zones retain their authored red/green/pink materials.
+            if (renderer.GetComponent<ScoreZone>() == null)
+                renderer.sharedMaterial = gameplayMaterial;
+        }
+    }
+
+    public void Initialize(Player owner, Canon canon, int playerSlot = -1)
     {
         if (counter != null && linkedCanon != null)
             counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
 
         Owner = owner;
         linkedCanon = canon;
+        PlayerSlot = playerSlot;
 
-        if (counter != null && linkedCanon != null)
+        NetworkGameBootstrap networkBootstrap = NetworkGameBootstrap.Instance;
+        bool networkControlled = networkBootstrap != null && networkBootstrap.ControlsGameplayRoster;
+        counter?.ConfigureNetworkMode(networkControlled);
+
+        if (!networkControlled && counter != null && linkedCanon != null)
             counter.OnBulletRequested.AddListener(linkedCanon.Fire);
 
         _initialized = true;
@@ -55,6 +92,9 @@ public class PachinkoField : MonoBehaviour
     {
         if (counter != null && linkedCanon != null)
             counter.OnBulletRequested.RemoveListener(linkedCanon.Fire);
+
+        if (_activeBall != null && _activeBall.IsPersistentNetworkBall)
+            _activeBall.DetachFromField(this);
     }
 
     private void SpawnBall()
@@ -67,6 +107,25 @@ public class PachinkoField : MonoBehaviour
         if (ballPrefab == null || spawnPoint == null)
         {
             Debug.LogWarning("PachinkoField: не задан ballPrefab или spawnPoint.", this);
+            return;
+        }
+
+        NetworkGameBootstrap networkBootstrap = NetworkGameBootstrap.Instance;
+        if (networkBootstrap != null && networkBootstrap.ControlsGameplayRoster)
+        {
+            if (PlayerSlot < 0)
+            {
+                Debug.LogWarning("PachinkoField: network player slot is not assigned.", this);
+                return;
+            }
+
+            if (networkBootstrap.TryGetPachinkoBallForSlot(PlayerSlot, out NetworkPachinkoBall existingBall))
+            {
+                existingBall.BindToGameplayField();
+                return;
+            }
+
+            networkBootstrap.TrySpawnPachinkoBall(this, PlayerSlot);
             return;
         }
 
@@ -97,12 +156,25 @@ public class PachinkoField : MonoBehaviour
         if (ball == null || ball != _activeBall)
             return;
 
-        _activeBall = null;
+        bool persistentNetworkBall = ball.IsPersistentNetworkBall;
+
+        if (persistentNetworkBall &&
+            NetworkGameBootstrap.Instance != null &&
+            NetworkGameBootstrap.Instance.ControlsGameplayRoster)
+        {
+            if (ball.ReportNetworkZoneHit(zone))
+                ScheduleRespawn(ball);
+
+            return;
+        }
+
+        if (!persistentNetworkBall)
+            _activeBall = null;
 
         if (counter == null)
         {
             Debug.LogError("PachinkoField: не назначен PachinkoCounter!", this);
-            ScheduleRespawn();
+            ScheduleRespawn(persistentNetworkBall ? ball : null);
             return;
         }
 
@@ -121,7 +193,7 @@ public class PachinkoField : MonoBehaviour
                 break;
         }
 
-        ScheduleRespawn();
+        ScheduleRespawn(persistentNetworkBall ? ball : null);
     }
 
     public void OnBallLost(PachinkoBall ball)
@@ -129,15 +201,27 @@ public class PachinkoField : MonoBehaviour
         if (ball == null || ball != _activeBall)
             return;
 
-        _activeBall = null;
-        ScheduleRespawn();
+        bool persistentNetworkBall = ball.IsPersistentNetworkBall;
+        if (!persistentNetworkBall)
+            _activeBall = null;
+
+        ScheduleRespawn(persistentNetworkBall ? ball : null);
     }
 
-    private void ScheduleRespawn()
+    public void AttachNetworkBall(PachinkoBall ball)
+    {
+        if (ball == null)
+            return;
+
+        _activeBall = ball;
+    }
+
+    private void ScheduleRespawn(PachinkoBall persistentBall = null)
     {
         if (_respawnRoutine != null)
             StopCoroutine(_respawnRoutine);
 
+        _ballPendingReset = persistentBall;
         _respawnRoutine = StartCoroutine(RespawnAfterDelay());
     }
 
@@ -145,6 +229,17 @@ public class PachinkoField : MonoBehaviour
     {
         yield return new WaitForSeconds(Mathf.Max(0f, respawnDelay));
         _respawnRoutine = null;
-        SpawnBall();
+
+        PachinkoBall ballToReset = _ballPendingReset;
+        _ballPendingReset = null;
+
+        if (ballToReset != null && ballToReset.IsPersistentNetworkBall)
+        {
+            ballToReset.ResetForNextRun();
+        }
+        else
+        {
+            SpawnBall();
+        }
     }
 }

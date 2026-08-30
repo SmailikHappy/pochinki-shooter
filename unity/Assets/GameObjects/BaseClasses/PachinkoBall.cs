@@ -1,4 +1,5 @@
 using UnityEngine;
+using Pochinki.Networking.Game;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PachinkoBall : MonoBehaviour
@@ -14,6 +15,7 @@ public class PachinkoBall : MonoBehaviour
     [SerializeField, Min(1f)] private float maxDistanceFromSpawn = 10f;
 
     private Rigidbody _rb;
+    private NetworkPachinkoBall _networkBall;
     private bool _consumed;
     private bool _initialized;
     private Vector3 _spawnPosition;
@@ -22,20 +24,28 @@ public class PachinkoBall : MonoBehaviour
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
+        _networkBall = GetComponent<NetworkPachinkoBall>();
         _rb.useGravity = false;
     }
 
-    public void Initialize(PachinkoField ownerField)
+    public bool IsPersistentNetworkBall => _networkBall != null && _networkBall.IsSpawned;
+    public bool HasSimulationAuthority => !IsPersistentNetworkBall || _networkBall.HasPhysicsAuthority;
+
+    public void Initialize(PachinkoField ownerField, bool resetAndLaunch = true)
     {
         field = ownerField;
-        _spawnPosition = transform.position;
-        _spawnTime = Time.time;
+        _spawnPosition = field != null ? field.SpawnPosition : transform.position;
         _initialized = true;
-    }
 
-    private void Start()
-    {
-        ApplyRandomLaunchForce();
+        if (!IsPersistentNetworkBall)
+        {
+            _networkBall?.PrepareStandaloneSimulation();
+        }
+
+        if (resetAndLaunch && HasSimulationAuthority)
+        {
+            ResetForNextRun();
+        }
     }
 
     private void ApplyRandomLaunchForce()
@@ -53,7 +63,7 @@ public class PachinkoBall : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (!_initialized || _consumed)
+        if (!_initialized || _consumed || !HasSimulationAuthority)
             return;
 
         if (field == null)
@@ -74,7 +84,7 @@ public class PachinkoBall : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (_consumed) return;
+        if (_consumed || !HasSimulationAuthority) return;
 
         ScoreZone zone = other.GetComponent<ScoreZone>();
         if (zone == null) return;
@@ -83,12 +93,15 @@ public class PachinkoBall : MonoBehaviour
         _consumed = true;
         if (field != null)
             field.OnBallScored(zone, this);
-        DestroyBall();
+
+        if (!IsPersistentNetworkBall)
+            DestroyBall();
     }
 
     public void DestroyBall()
     {
-        Destroy(gameObject);
+        if (!IsPersistentNetworkBall)
+            Destroy(gameObject);
     }
 
     public void ForceRemoveAndRespawn()
@@ -97,7 +110,58 @@ public class PachinkoBall : MonoBehaviour
         _consumed = true;
         if (field != null)
             field.OnBallLost(this);
-        DestroyBall();
+
+        if (!IsPersistentNetworkBall)
+            DestroyBall();
+    }
+
+    public void ResetForNextRun()
+    {
+        if (!_initialized || field == null || !HasSimulationAuthority)
+            return;
+
+        _spawnPosition = field.SpawnPosition;
+        _spawnTime = Time.time;
+        _consumed = false;
+
+        _rb.isKinematic = false;
+        _rb.linearVelocity = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
+
+        if (IsPersistentNetworkBall)
+        {
+            _networkBall.TeleportFromOwner(field.SpawnPosition, field.SpawnRotation);
+        }
+        else
+        {
+            transform.SetPositionAndRotation(field.SpawnPosition, field.SpawnRotation);
+        }
+
+        ApplyRandomLaunchForce();
+    }
+
+    public void ApplyOwnerForce(Vector3 force, ForceMode mode = ForceMode.Impulse)
+    {
+        if (_initialized && !_consumed && HasSimulationAuthority)
+        {
+            _rb.AddForce(force, mode);
+        }
+    }
+
+    public bool ReportNetworkZoneHit(ScoreZone zone)
+    {
+        return zone != null &&
+            _networkBall != null &&
+            _networkBall.ReportZoneHit(zone.ZoneType);
+    }
+
+    public void DetachFromField(PachinkoField expectedField = null)
+    {
+        if (expectedField != null && field != expectedField)
+            return;
+
+        field = null;
+        _initialized = false;
     }
 
 }

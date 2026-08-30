@@ -67,32 +67,32 @@
       const loading = document.querySelector('#unity-loading');
       const progress = document.querySelector('#unity-progress-value');
       let unityInstance = null;
-      let pendingMultiplayerSnapshot = null;
+      let pendingDiscordSession = null;
 
       window.addEventListener('message', (event) => {
         if (
           event.source !== window.parent ||
           event.origin !== window.location.origin ||
-          event.data?.type !== 'pochinki:multiplayer-snapshot'
+          event.data?.type !== 'pochinki:discord-session'
         ) {
           return;
         }
 
-        pendingMultiplayerSnapshot = JSON.stringify(event.data.payload);
-        deliverMultiplayerSnapshot();
+        pendingDiscordSession = JSON.stringify(event.data.payload);
+        deliverDiscordSession();
       });
 
-      function deliverMultiplayerSnapshot() {
-        if (!unityInstance || !pendingMultiplayerSnapshot) {
+      function deliverDiscordSession() {
+        if (!unityInstance || !pendingDiscordSession) {
           return;
         }
 
         unityInstance.SendMessage(
           'DiscordHandler',
-          'ReceiveSnapshot',
-          pendingMultiplayerSnapshot,
+          'ReceiveSession',
+          pendingDiscordSession,
         );
-        pendingMultiplayerSnapshot = null;
+        pendingDiscordSession = null;
       }
 
       createUnityInstance(
@@ -122,7 +122,7 @@
           canvas.focus();
 
           window.setTimeout(() => {
-            deliverMultiplayerSnapshot();
+            deliverDiscordSession();
             window.parent.postMessage(
               { type: 'pochinki:unity-ready' },
               window.location.origin,

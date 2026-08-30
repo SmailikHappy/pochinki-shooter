@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Pochinki.Networking.Game;
 
 [RequireComponent(typeof(PlayerOwnable))]
 public class Canon : MonoBehaviour
@@ -17,6 +18,13 @@ public class Canon : MonoBehaviour
     private InputAction fireAction;
     private bool initialized;
     private bool inputActive;
+
+    public Player Owner => playerOwnable != null ? playerOwnable.GetOwner() : null;
+    public Vector3 FirePosition => firePoint != null ? firePoint.position : transform.position;
+    public Quaternion FireRotation => firePoint != null ? firePoint.rotation : transform.rotation;
+    public Vector3 FireDirection => firePoint != null ? firePoint.right : transform.right;
+    public float BulletSpeed => bulletSpeed;
+    public float BulletScale => bulletScale;
 
     private void Awake()
     {
@@ -69,9 +77,11 @@ public class Canon : MonoBehaviour
 
     public void RefreshInputOwnership()
     {
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
         bool shouldReceiveInput =
             isActiveAndEnabled &&
             initialized &&
+            (bootstrap == null || !bootstrap.ControlsGameplayRoster) &&
             IsOwnedByLocalUser();
 
         SetInputActive(shouldReceiveInput);
@@ -130,6 +140,17 @@ public class Canon : MonoBehaviour
         if (owner == null)
         {
             Debug.LogWarning("Canon: cannot fire without an owner.", this);
+            return;
+        }
+
+        NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
+        if (bootstrap != null && bootstrap.ControlsGameplayRoster)
+        {
+            if (bootstrap.IsServer)
+            {
+                bootstrap.TrySpawnNetworkBullet(this);
+            }
+
             return;
         }
 
