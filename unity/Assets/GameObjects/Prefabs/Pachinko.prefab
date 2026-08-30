@@ -4189,7 +4189,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PachinkoCounter
   startValue: 1
   maxValue: 2147483647
-  shotInterval: 0.15
+  shotInterval: 0.05
   field: {fileID: 8033922611779142500}
   OnCounterChanged:
     m_PersistentCalls:

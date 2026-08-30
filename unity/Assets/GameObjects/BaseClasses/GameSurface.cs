@@ -40,6 +40,12 @@ public class GameSurface : MonoBehaviour
     private GameObject pixelParent;
     private GameObject canonParent;
 
+    // Угловые пиксели запоминаются напрямую в момент спавна (по индексам x/z),
+    // а не находятся заново через сравнение float-координат — точное сравнение
+    // чисел с плавающей точкой ненадёжно и на некоторых размерах поля/spacing
+    // не совпадало из-за погрешности округления, из-за чего пропадали пушки.
+    private readonly Transform[] cornerPixelTransforms = new Transform[4];
+
     private readonly Dictionary<Player, Canon> spawnedCanons = new();
     public IReadOnlyDictionary<Player, Canon> SpawnedCanons => spawnedCanons;
 
@@ -59,6 +65,7 @@ public class GameSurface : MonoBehaviour
         }
 
         ClearChildren();
+        System.Array.Clear(cornerPixelTransforms, 0, cornerPixelTransforms.Length);
 
         // Шаг сетки всегда подгоняется под фиксированный физический размер поля —
         // rows/columns влияют только на плотность, не на общий занимаемый объём.
@@ -98,6 +105,10 @@ public class GameSurface : MonoBehaviour
                 Player owner = GetPlayerForPixel(x, z, players);
                 pixel?.Init(owner);
                 pixel?.SetCaptureZoneWorldSize(triggerSizeX, triggerSizeZ);
+
+                int cornerIndex = GetCornerIndex(x, z);
+                if (cornerIndex >= 0)
+                    cornerPixelTransforms[cornerIndex] = instance.transform;
             }
         }
 
@@ -150,27 +161,32 @@ public class GameSurface : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 0 = низ-лево, 1 = низ-право, 2 = верх-лево, 3 = верх-право. -1, если клетка не угловая.
+    /// </summary>
+    private int GetCornerIndex(int x, int z)
+    {
+        bool isLeftEdge = x == 0;
+        bool isRightEdge = x == columns - 1;
+        bool isBottomEdge = z == 0;
+        bool isTopEdge = z == rows - 1;
+
+        if (isLeftEdge && isBottomEdge) return 0;
+        if (isRightEdge && isBottomEdge) return 1;
+        if (isLeftEdge && isTopEdge) return 2;
+        if (isRightEdge && isTopEdge) return 3;
+
+        return -1;
+    }
+
     public List<Transform> GetSpawnTransforms()
     {
-        List<Transform> spawnPoints = new();
-        GameObject generatedPixelParent = GetGeneratedContainer(pixelParent, PixelParentName);
-        if (generatedPixelParent == null)
-            return spawnPoints;
+        var spawnPoints = new List<Transform>();
 
-        List<Pixel> pixels = new(generatedPixelParent.GetComponentsInChildren<Pixel>(false));
-
-        int[] xIndices = { 0, columns - 1, 0, columns - 1 };
-        int[] zIndices = { 0, 0, rows - 1, rows - 1 };
-
-        for (int i = 0; i < 4; i++)
+        foreach (Transform cornerTransform in cornerPixelTransforms)
         {
-            Pixel cornerPixel = pixels.Find(pixel =>
-                pixel != null &&
-                pixel.transform.localPosition.x == xIndices[i] * cellPitchX - ((columns - 1) * cellPitchX / 2f) &&
-                pixel.transform.localPosition.z == zIndices[i] * cellPitchZ - ((rows - 1) * cellPitchZ / 2f));
-
-            if (cornerPixel != null)
-                spawnPoints.Add(cornerPixel.transform);
+            if (cornerTransform != null)
+                spawnPoints.Add(cornerTransform);
         }
 
         return spawnPoints;

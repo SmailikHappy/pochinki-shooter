@@ -84,7 +84,8 @@ MonoBehaviour:
   inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   bulletPrefab: {fileID: 985186708055616583, guid: 36288f919bcb4224eb71dae781acd265, type: 3}
   bulletSpeed: 3
-  bulletScale: 0.2
+  bulletScale: 0.1
+  fireCooldown: 0.5
 --- !u!114 &8394732363149474935
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -98,7 +99,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rotationAxis: {x: 0, y: 1, z: 0}
-  rotationRange: 90
+  rotationRange: 95
   rotationSpeed: 60
   phaseOffsetDegrees: 0
 --- !u!114 &-8759321278383870221
