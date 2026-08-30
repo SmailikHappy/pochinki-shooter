@@ -157,7 +157,9 @@ namespace Pochinki.Networking.Game.Editor
 
             NetworkTransform networkTransform = GetOrAdd<NetworkTransform>(root);
             networkTransform.AuthorityMode = NetworkTransform.AuthorityModes.Server;
-            networkTransform.Interpolate = true;
+            // Pixel ownership changes immediately on the authoritative hit. A
+            // delayed transform would otherwise show the bullet behind that hit.
+            networkTransform.Interpolate = false;
             networkTransform.UseQuaternionSynchronization = true;
             networkTransform.SyncScaleX = true;
             networkTransform.SyncScaleY = true;
@@ -250,6 +252,7 @@ namespace Pochinki.Networking.Game.Editor
 
             networkManager.NetworkConfig.NetworkTransport = transport;
             networkManager.NetworkConfig.PlayerPrefab = sessionPlayerPrefab;
+            networkManager.NetworkConfig.ProtocolVersion = NetworkGameBootstrap.GameSchemaVersion;
             networkManager.NetworkConfig.ConnectionApproval = true;
             networkManager.NetworkConfig.TickRate = 30;
             networkManager.NetworkConfig.Prefabs.NetworkPrefabsLists.Clear();

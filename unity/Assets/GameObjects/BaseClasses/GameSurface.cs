@@ -9,13 +9,13 @@ public class GameSurface : MonoBehaviour
     [Header("Grid Settings")]
     [SerializeField] private int rows = 5;
     [SerializeField] private int columns = 5;
-    [SerializeField] private float spacingX = 2f;
-    [SerializeField] private float spacingZ = 2f;
-    [Tooltip("Размер сетки (по большей стороне), при котором spacingX/Z и Pixel Spawn Scale берутся как есть, без уменьшения. Больше baseline — сетка масштабируется вниз пропорционально.")]
-    [SerializeField, Min(1)] private int baselineGridSize = 15;
-
-    private float effectiveSpacingX;
-    private float effectiveSpacingZ;
+    [Tooltip("Fixed X/Z size of the field. Grid dimensions change density, not the field footprint.")]
+    [SerializeField] private Vector2 fieldWorldSize = new Vector2(30f, 30f);
+    [Tooltip("Visual spacing ratio. A larger value makes the rendered pixels smaller without changing the field footprint.")]
+    [SerializeField, Min(0.01f)] private float spacingRatioX = 1f;
+    [SerializeField, Min(0.01f)] private float spacingRatioZ = 1f;
+    private float cellPitchX;
+    private float cellPitchZ;
     private Vector3 effectivePixelScale;
 
     [Header("Prefab Settings")]
@@ -32,6 +32,7 @@ public class GameSurface : MonoBehaviour
 
     private GameObject pixelParent;
     private GameObject canonParent;
+    private readonly Transform[] cornerPixelTransforms = new Transform[4];
 
     private readonly Dictionary<Player, Canon> spawnedCanons = new();
     private readonly List<Pixel> spawnedPixels = new();
@@ -55,14 +56,13 @@ public class GameSurface : MonoBehaviour
 
         ClearChildren();
 
-        float largestDimension = Mathf.Max(rows, columns);
-        float scaleFactor = largestDimension > baselineGridSize
-            ? baselineGridSize / largestDimension
-            : 1f;
+        cellPitchX = Mathf.Max(0.01f, fieldWorldSize.x) / Mathf.Max(1, columns - 1);
+        cellPitchZ = Mathf.Max(0.01f, fieldWorldSize.y) / Mathf.Max(1, rows - 1);
 
-        effectiveSpacingX = spacingX * scaleFactor;
-        effectiveSpacingZ = spacingZ * scaleFactor;
-        effectivePixelScale = pixelSpawnScale * scaleFactor;
+        effectivePixelScale = new Vector3(
+            pixelSpawnScale.x * cellPitchX / Mathf.Max(0.01f, spacingRatioX),
+            pixelSpawnScale.y,
+            pixelSpawnScale.z * cellPitchZ / Mathf.Max(0.01f, spacingRatioZ));
 
         pixelParent = new GameObject(PixelParentName);
         pixelParent.transform.SetParent(transform);
@@ -70,15 +70,15 @@ public class GameSurface : MonoBehaviour
         pixelParent.transform.localRotation = Quaternion.identity;
         pixelParent.transform.localScale = Vector3.one;
 
-        float totalWidth = (columns - 1) * effectiveSpacingX;
-        float totalDepth = (rows - 1) * effectiveSpacingZ;
+        float totalWidth = (columns - 1) * cellPitchX;
+        float totalDepth = (rows - 1) * cellPitchZ;
         Vector3 halfOffset = new Vector3(totalWidth / 2f, 0, totalDepth / 2f);
 
         for (int x = 0; x < columns; x++)
         {
             for (int z = 0; z < rows; z++)
             {
-                Vector3 localPos = new Vector3(x * effectiveSpacingX, 0, z * effectiveSpacingZ) - halfOffset;
+                Vector3 localPos = new Vector3(x * cellPitchX, 0, z * cellPitchZ) - halfOffset;
                 GameObject instance = Instantiate(pixelPrefab, pixelParent.transform);
 
                 instance.transform.localPosition = localPos;
@@ -95,6 +95,10 @@ public class GameSurface : MonoBehaviour
 
                 if (pixel != null)
                     spawnedPixels.Add(pixel);
+
+                int cornerIndex = GetCornerIndex(x, z);
+                if (cornerIndex >= 0)
+                    cornerPixelTransforms[cornerIndex] = instance.transform;
             }
         }
 
@@ -149,28 +153,31 @@ public class GameSurface : MonoBehaviour
 
     public List<Transform> GetSpawnTransforms()
     {
-        List<Transform> spawnPoints = new();
-        GameObject generatedPixelParent = GetGeneratedContainer(pixelParent, PixelParentName);
-        if (generatedPixelParent == null)
-            return spawnPoints;
-
-        List<Pixel> pixels = new(generatedPixelParent.GetComponentsInChildren<Pixel>(false));
-
-        int[] xIndices = { 0, columns - 1, 0, columns - 1 };
-        int[] zIndices = { 0, 0, rows - 1, rows - 1 };
-
-        for (int i = 0; i < 4; i++)
+        var spawnPoints = new List<Transform>(cornerPixelTransforms.Length);
+        foreach (Transform cornerTransform in cornerPixelTransforms)
         {
-            Pixel cornerPixel = pixels.Find(pixel =>
-            pixel != null &&
-            pixel.transform.localPosition.x == xIndices[i] * effectiveSpacingX - ((columns - 1) * effectiveSpacingX / 2f) &&
-            pixel.transform.localPosition.z == zIndices[i] * effectiveSpacingZ - ((rows - 1) * effectiveSpacingZ / 2f));
-
-            if (cornerPixel != null)
-                spawnPoints.Add(cornerPixel.transform);
+            if (cornerTransform != null)
+                spawnPoints.Add(cornerTransform);
         }
 
         return spawnPoints;
+    }
+
+    /// <summary>
+    /// 0 = bottom-left, 1 = bottom-right, 2 = top-left, 3 = top-right.
+    /// </summary>
+    private int GetCornerIndex(int x, int z)
+    {
+        bool isLeftEdge = x == 0;
+        bool isRightEdge = x == columns - 1;
+        bool isBottomEdge = z == 0;
+        bool isTopEdge = z == rows - 1;
+
+        if (isLeftEdge && isBottomEdge) return 0;
+        if (isRightEdge && isBottomEdge) return 1;
+        if (isLeftEdge && isTopEdge) return 2;
+        if (isRightEdge && isTopEdge) return 3;
+        return -1;
     }
 
     public Player GetPlayerForPixel(int x, int z, IReadOnlyList<Player> players)
@@ -226,6 +233,7 @@ public class GameSurface : MonoBehaviour
         DestroyGeneratedContainer(ref canonParent, CanonParentName);
         spawnedCanons.Clear();
         spawnedPixels.Clear();
+        System.Array.Clear(cornerPixelTransforms, 0, cornerPixelTransforms.Length);
     }
 
     private GameObject GetGeneratedContainer(GameObject cachedContainer, string containerName)

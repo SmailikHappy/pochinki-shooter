@@ -23,6 +23,9 @@ public class Bullet : MonoBehaviour
     private float _destroyAt;
     private bool _simulationActive;
 
+    public bool CanCapturePixel => _simulationActive &&
+        (_networkBullet == null || (_networkBullet.IsSpawned && _networkBullet.IsServer));
+
     private void Awake()
     {
         _rb = GetComponent<Rigidbody>();
@@ -34,7 +37,12 @@ public class Bullet : MonoBehaviour
         _rb.linearDamping = 0f;
         _rb.angularDamping = 0f;
         _rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-        _rb.interpolation = RigidbodyInterpolation.Interpolate;
+        // NGO already replicates network bullets. Rigidbody interpolation on
+        // top of it would make the authoritative transform itself trail the
+        // physics contact by one step. Keep smoothing only for legacy local play.
+        _rb.interpolation = _networkBullet == null
+            ? RigidbodyInterpolation.Interpolate
+            : RigidbodyInterpolation.None;
 
         _collider.isTrigger = false;
 
@@ -143,6 +151,11 @@ public class Bullet : MonoBehaviour
 
     public void DestroyBullet()
     {
+        if (!_simulationActive)
+            return;
+
+        // Disable synchronously. Unity may invoke several overlapping trigger
+        // callbacks in one physics step before the object is actually despawned.
         _simulationActive = false;
 
         if (_networkBullet != null && _networkBullet.IsSpawned)

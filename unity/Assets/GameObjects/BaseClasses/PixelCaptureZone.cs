@@ -19,6 +19,10 @@ public class PixelCaptureZone : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        Bullet bullet = other.GetComponent<Bullet>();
+        if (bullet == null || !bullet.CanCapturePixel)
+            return;
+
         NetworkGameBootstrap bootstrap = NetworkGameBootstrap.Instance;
         if (bootstrap != null && bootstrap.ControlsGameplayRoster)
         {
@@ -32,7 +36,7 @@ public class PixelCaptureZone : MonoBehaviour
             if (NetworkMatchState.Instance != null &&
                 NetworkMatchState.Instance.TryCapturePixel(pixel.GridIndex, networkBullet.PlayerSlot))
             {
-                other.GetComponent<Bullet>()?.DestroyBullet();
+                bullet.DestroyBullet();
             }
 
             return;
@@ -54,6 +58,6 @@ public class PixelCaptureZone : MonoBehaviour
             return; // своя клетка — пуля проходит сквозь, не убивается и не перекрашивает
 
         pixelOwnable.SetOwner(shooter);
-        Destroy(other.gameObject);
+        bullet.DestroyBullet();
     }
 }

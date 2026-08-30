@@ -21,6 +21,9 @@ namespace Pochinki.Networking.Game
         public const ushort ServerPort = 7777;
         public const string WebSocketPath = "/ngo-ws";
         public const int MaxSupportedPlayers = 4;
+        // Increment whenever separately built clients and servers would interpret
+        // replicated gameplay state differently (for example, a grid layout change).
+        public const ushort GameSchemaVersion = 5;
 
         [Serializable]
         private sealed class ConnectionIdentityPayload
@@ -28,6 +31,7 @@ namespace Pochinki.Networking.Game
             public string discordId;
             public string username;
             public string instanceId;
+            public int gameSchemaVersion;
         }
 
         private sealed class ApprovedIdentity
@@ -98,6 +102,10 @@ namespace Pochinki.Networking.Game
             networkManager = GetComponent<NetworkManager>();
             transport = GetComponent<UnityTransport>();
 
+            // NGO validates this in both directions before gameplay state is accepted.
+            // Unlike an extra JSON field, this also protects a new client from an old
+            // server that does not yet know how to validate gameSchemaVersion itself.
+            networkManager.NetworkConfig.ProtocolVersion = GameSchemaVersion;
             networkManager.NetworkConfig.ConnectionApproval = true;
             networkManager.ConnectionApprovalCallback = ApproveConnection;
             networkManager.OnServerStarted += HandleServerStarted;
@@ -159,6 +167,7 @@ namespace Pochinki.Networking.Game
                 discordId = cleanDiscordId,
                 username = string.IsNullOrEmpty(cleanUsername) ? "Player" : cleanUsername,
                 instanceId = cleanInstanceId,
+                gameSchemaVersion = GameSchemaVersion,
             };
 
             networkManager.NetworkConfig.ConnectionData = Encoding.UTF8.GetBytes(JsonUtility.ToJson(payload));
@@ -477,6 +486,15 @@ namespace Pochinki.Networking.Game
             string instanceId = Sanitize(payload?.instanceId, 128);
             string username = Sanitize(payload?.username, 30);
 
+            if (payload == null || payload.gameSchemaVersion != GameSchemaVersion)
+            {
+                int clientSchema = payload?.gameSchemaVersion ?? 0;
+                rejectionReason =
+                    $"Client/server version mismatch (client schema {clientSchema}, " +
+                    $"server schema {GameSchemaVersion}).";
+                return false;
+            }
+
             if (string.IsNullOrEmpty(discordId) || string.IsNullOrEmpty(instanceId))
             {
                 rejectionReason = "Discord user or Activity instance is missing.";
@@ -555,7 +573,9 @@ namespace Pochinki.Networking.Game
 
         private void HandleServerStarted()
         {
-            Debug.Log("[Network Game] Server is ready for approved Discord sessions.");
+            Debug.Log(
+                $"[Network Game] Server is ready for approved Discord sessions " +
+                $"(game schema {GameSchemaVersion}).");
         }
 
         private void HandleClientConnected(ulong clientId)

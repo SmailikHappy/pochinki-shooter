@@ -22,6 +22,7 @@ namespace Pochinki.Networking.Game
     {
         public const byte NeutralSlot = byte.MaxValue;
         public const int MaxCounterValue = 128;
+        private const float SnapshotInitializationGraceSeconds = 5f;
 
         [SerializeField, Min(0.01f)] private float releaseShotInterval = 0.15f;
 
@@ -69,6 +70,7 @@ namespace Pochinki.Networking.Game
         private Coroutine applyRoutine;
         private bool eventVersionsInitialized;
         private bool resettingServerState;
+        private string lastSchemaMismatch = string.Empty;
 
         public static NetworkMatchState Instance { get; private set; }
 
@@ -124,8 +126,10 @@ namespace Pochinki.Networking.Game
             }
         }
 
-        private void OnDestroy()
+        public override void OnDestroy()
         {
+            base.OnDestroy();
+
             if (Instance == this)
             {
                 Instance = null;
@@ -142,7 +146,13 @@ namespace Pochinki.Networking.Game
             if (IsServer)
             {
                 string rosterSignature = GameHandler.instance?.NetworkRosterSignature ?? string.Empty;
-                if (!string.Equals(serverRosterSignature, rosterSignature, System.StringComparison.Ordinal))
+                int gameplayPixelCount = GameHandler.instance?.PixelCount ?? 0;
+                bool rosterChanged = !string.Equals(
+                    serverRosterSignature,
+                    rosterSignature,
+                    System.StringComparison.Ordinal);
+                bool gridChanged = pixelOwners.Count != gameplayPixelCount;
+                if (rosterChanged || gridChanged)
                 {
                     ResetServerMatch(rosterSignature);
                     return;
@@ -189,7 +199,6 @@ namespace Pochinki.Networking.Game
                     return false;
             }
 
-            ApplySnapshotToGameplay();
             return true;
         }
 
@@ -222,7 +231,6 @@ namespace Pochinki.Networking.Game
                 EliminateSlot(pixel.MasterOwnerSlot);
             }
 
-            ApplySnapshotToGameplay();
             return true;
         }
 
@@ -337,7 +345,6 @@ namespace Pochinki.Networking.Game
             counterValues[slot] = 1;
             releasingSlots[slot] = 0;
             releaseRoutines[slot] = null;
-            ApplySnapshotToGameplay();
         }
 
         private void EliminateSlot(int slot)
@@ -382,7 +389,6 @@ namespace Pochinki.Networking.Game
                 NetworkGameBootstrap.Instance?.DespawnAllNetworkBullets();
             }
 
-            ApplySnapshotToGameplay();
         }
 
         private bool IsSlotGameplayActive(int slot)
@@ -424,11 +430,12 @@ namespace Pochinki.Networking.Game
                 return;
             }
 
-            int slotCount = Mathf.Min(
-                NetworkGameBootstrap.MaxSupportedPlayers,
-                Mathf.Min(counterValues.Count, releasingSlots.Count));
+            if (!ValidateSnapshotSchema())
+            {
+                return;
+            }
 
-            for (int slot = 0; slot < slotCount; slot++)
+            for (int slot = 0; slot < NetworkGameBootstrap.MaxSupportedPlayers; slot++)
             {
                 uint eventVersion = slot < eventVersions.Count ? eventVersions[slot] : 0;
                 bool triggerEvent = eventVersionsInitialized &&
@@ -444,8 +451,7 @@ namespace Pochinki.Networking.Game
 
             eventVersionsInitialized = true;
 
-            int pixelCount = Mathf.Min(pixelOwners.Count, GameHandler.instance.PixelCount);
-            for (int index = 0; index < pixelCount; index++)
+            for (int index = 0; index < pixelOwners.Count; index++)
             {
                 int ownerSlot = pixelOwners[index] == NeutralSlot ? -1 : pixelOwners[index];
                 GameHandler.instance.ApplyNetworkPixelOwner(index, ownerSlot);
@@ -455,6 +461,45 @@ namespace Pochinki.Networking.Game
                 eliminatedMask.Value,
                 WinnerSlot,
                 phase.Value);
+
+            lastSchemaMismatch = string.Empty;
+        }
+
+        private bool ValidateSnapshotSchema()
+        {
+            int expectedSlots = NetworkGameBootstrap.MaxSupportedPlayers;
+            if (counterValues.Count != expectedSlots ||
+                releasingSlots.Count != expectedSlots ||
+                eventVersions.Count != expectedSlots)
+            {
+                return ReportSchemaMismatch(
+                    $"GAME SCHEMA MISMATCH! Expected {expectedSlots} player slots, " +
+                    $"received counters={counterValues.Count}, releases={releasingSlots.Count}, " +
+                    $"events={eventVersions.Count}.");
+            }
+
+            int serverPixelCount = pixelOwners.Count;
+            int clientPixelCount = GameHandler.instance.PixelCount;
+            if (serverPixelCount != clientPixelCount)
+            {
+                return ReportSchemaMismatch(
+                    $"GAME SCHEMA MISMATCH! Server pixels={serverPixelCount}, " +
+                    $"client pixels={clientPixelCount}. Rebuild and restart both the " +
+                    "Dedicated Server and WebGL client from the same commit.");
+            }
+
+            return true;
+        }
+
+        private bool ReportSchemaMismatch(string message)
+        {
+            if (!string.Equals(lastSchemaMismatch, message, System.StringComparison.Ordinal))
+            {
+                lastSchemaMismatch = message;
+                Debug.LogError(message, this);
+            }
+
+            return false;
         }
 
         private void QueueApplySnapshot()
@@ -469,10 +514,43 @@ namespace Pochinki.Networking.Game
 
         private IEnumerator ApplyWhenGameplayReady()
         {
+            // Coalesce NetworkList Clear/Add/Full bursts and never inspect a list
+            // halfway through one replicated structural update.
+            yield return null;
+            float initializationDeadline =
+                Time.realtimeSinceStartup + SnapshotInitializationGraceSeconds;
+
             while (IsSpawned)
             {
                 if (GameHandler.instance != null && GameHandler.instance.IsGameplayReadyForNetworkState)
                 {
+                    int expectedSlots = NetworkGameBootstrap.MaxSupportedPlayers;
+                    int expectedPixels = GameHandler.instance.PixelCount;
+
+                    // On a joining client the replicated match object can arrive
+                    // before the Discord roster has built the local grid. Zero is
+                    // not a schema in that window, so wait instead of reporting a
+                    // misleading 225/0 mismatch.
+                    if (pixelOwners.Count > 0 && expectedPixels == 0)
+                    {
+                        yield return null;
+                        continue;
+                    }
+
+                    bool slotListsStillFilling =
+                        counterValues.Count < expectedSlots ||
+                        releasingSlots.Count < expectedSlots ||
+                        eventVersions.Count < expectedSlots;
+                    bool pixelListStillFilling =
+                        expectedPixels > 0 && pixelOwners.Count < expectedPixels;
+
+                    if (Time.realtimeSinceStartup < initializationDeadline &&
+                        (slotListsStillFilling || pixelListStillFilling))
+                    {
+                        yield return null;
+                        continue;
+                    }
+
                     applyRoutine = null;
                     ApplySnapshotToGameplay();
                     yield break;
@@ -486,41 +564,152 @@ namespace Pochinki.Networking.Game
 
         private void HandleCounterChanged(NetworkListEvent<int> changeEvent)
         {
-            if (!resettingServerState)
-                QueueApplySnapshot();
+            if (resettingServerState)
+                return;
+
+            if (changeEvent.Type == NetworkListEvent<int>.EventType.Value &&
+                TryApplyCounterSlot(changeEvent.Index, triggerEvent: false))
+            {
+                return;
+            }
+
+            QueueApplySnapshot();
         }
 
         private void HandleReleaseChanged(NetworkListEvent<byte> changeEvent)
         {
-            if (!resettingServerState)
-                QueueApplySnapshot();
+            if (resettingServerState)
+                return;
+
+            if (changeEvent.Type == NetworkListEvent<byte>.EventType.Value &&
+                TryApplyCounterSlot(changeEvent.Index, triggerEvent: false))
+            {
+                return;
+            }
+
+            QueueApplySnapshot();
         }
 
         private void HandleEventChanged(NetworkListEvent<uint> changeEvent)
         {
-            if (!resettingServerState)
-                QueueApplySnapshot();
+            if (resettingServerState)
+                return;
+
+            if (changeEvent.Type == NetworkListEvent<uint>.EventType.Value &&
+                eventVersionsInitialized &&
+                TryApplyCounterSlot(changeEvent.Index, triggerEvent: true))
+            {
+                return;
+            }
+
+            QueueApplySnapshot();
         }
 
         private void HandlePixelChanged(NetworkListEvent<byte> changeEvent)
         {
-            if (!resettingServerState)
-                QueueApplySnapshot();
+            if (resettingServerState)
+                return;
+
+            if (changeEvent.Type == NetworkListEvent<byte>.EventType.Value &&
+                TryApplyPixel(changeEvent.Index))
+            {
+                return;
+            }
+
+            QueueApplySnapshot();
         }
 
         private void HandleOutcomeChanged(byte previousValue, byte newValue)
         {
-            QueueApplySnapshot();
+            ApplyOutcomeOrQueue();
         }
 
         private void HandleWinnerChanged(byte previousValue, byte newValue)
         {
-            QueueApplySnapshot();
+            ApplyOutcomeOrQueue();
         }
 
         private void HandlePhaseChanged(NetworkMatchPhase previousValue, NetworkMatchPhase newValue)
         {
-            QueueApplySnapshot();
+            ApplyOutcomeOrQueue();
+        }
+
+        private bool TryApplyCounterSlot(int slot, bool triggerEvent)
+        {
+            if (GameHandler.instance == null ||
+                !GameHandler.instance.IsGameplayReadyForNetworkState ||
+                slot < 0 ||
+                slot >= NetworkGameBootstrap.MaxSupportedPlayers ||
+                slot >= counterValues.Count ||
+                slot >= releasingSlots.Count ||
+                slot >= eventVersions.Count)
+            {
+                return false;
+            }
+
+            bool shouldTriggerEvent = false;
+            if (triggerEvent)
+            {
+                uint eventVersion = eventVersions[slot];
+                shouldTriggerEvent = eventVersion > observedEventVersions[slot];
+                observedEventVersions[slot] = eventVersion;
+            }
+
+            GameHandler.instance.ApplyNetworkCounterState(
+                slot,
+                counterValues[slot],
+                releasingSlots[slot] != 0,
+                shouldTriggerEvent);
+            return true;
+        }
+
+        private bool TryApplyPixel(int index)
+        {
+            if (GameHandler.instance == null ||
+                !GameHandler.instance.IsGameplayReadyForNetworkState ||
+                index < 0 ||
+                index >= pixelOwners.Count)
+            {
+                return false;
+            }
+
+            int clientPixelCount = GameHandler.instance.PixelCount;
+            if (pixelOwners.Count > 0 && clientPixelCount == 0)
+            {
+                QueueApplySnapshot();
+                return true;
+            }
+
+            if (pixelOwners.Count != clientPixelCount)
+            {
+                ReportSchemaMismatch(
+                    $"GAME SCHEMA MISMATCH! Server pixels={pixelOwners.Count}, " +
+                    $"client pixels={clientPixelCount}. Rebuild and restart both the " +
+                    "Dedicated Server and WebGL client from the same commit.");
+                return true;
+            }
+
+            int ownerSlot = pixelOwners[index] == NeutralSlot ? -1 : pixelOwners[index];
+            GameHandler.instance.ApplyNetworkPixelOwner(index, ownerSlot);
+            return true;
+        }
+
+        private void ApplyOutcomeOrQueue()
+        {
+            if (resettingServerState)
+                return;
+
+            if (GameHandler.instance == null ||
+                !GameHandler.instance.IsGameplayReadyForNetworkState)
+            {
+                QueueApplySnapshot();
+                return;
+            }
+
+            GameHandler.instance.ApplyNetworkMatchOutcome(
+                eliminatedMask.Value,
+                WinnerSlot,
+                phase.Value);
         }
     }
 }

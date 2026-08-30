@@ -116,6 +116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67deb464120944842875691e4694b80d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Pixel
+  captureZoneTransform: {fileID: 7679265286038441966}
 --- !u!114 &6308642625887015155
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -129,7 +130,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerOwnable
   playerRenderer: {fileID: 7010298255146987335}
-  neutralMaterial: {fileID: 0}
+  neutralMaterial: {fileID: 2100000, guid: 0755b18c369384c4e950c8037b862b27, type: 2}
 --- !u!33 &8763853216948219540
 MeshFilter:
   m_ObjectHideFlags: 0

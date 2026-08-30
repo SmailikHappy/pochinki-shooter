@@ -4,6 +4,9 @@ using Pochinki.Networking.Game;
 [RequireComponent(typeof(PlayerOwnable))]
 public class Pixel : MonoBehaviour
 {
+    [Tooltip("Child transform containing PixelCaptureZone.")]
+    [SerializeField] private Transform captureZoneTransform;
+
     public bool IsMasterPixel { get; private set; }
     public int GridIndex { get; private set; } = -1;
     public int InitialOwnerSlot { get; private set; } = -1;
@@ -14,6 +17,14 @@ public class Pixel : MonoBehaviour
     private void Awake()
     {
         ownable = GetComponent<PlayerOwnable>();
+
+        if (captureZoneTransform == null)
+        {
+            PixelCaptureZone captureZone = GetComponentInChildren<PixelCaptureZone>(true);
+            captureZoneTransform = captureZone != null ? captureZone.transform : null;
+        }
+
+        FitCaptureZoneToVisiblePixel();
     }
 
     public void Init(Player owner, int gridIndex = -1, int initialOwnerSlot = -1)
@@ -26,6 +37,38 @@ public class Pixel : MonoBehaviour
     public void ApplyNetworkOwner(Player owner)
     {
         ownable.SetOwner(owner);
+    }
+
+    private void FitCaptureZoneToVisiblePixel()
+    {
+        if (captureZoneTransform == null)
+            return;
+
+        Renderer visibleRenderer = GetComponent<Renderer>();
+        BoxCollider captureCollider = captureZoneTransform.GetComponent<BoxCollider>();
+        if (visibleRenderer == null || captureCollider == null)
+            return;
+
+        // Both bounds are expressed in the Pixel's local space. Matching them
+        // here keeps the trigger glued to the rendered cube under every parent
+        // and grid scale, without mixing local values with world units.
+        Bounds visibleBounds = visibleRenderer.localBounds;
+        Vector3 colliderSize = captureCollider.size;
+        float scaleX = Mathf.Abs(colliderSize.x) > 0.0001f
+            ? Mathf.Abs(visibleBounds.size.x / colliderSize.x)
+            : 1f;
+        float scaleZ = Mathf.Abs(colliderSize.z) > 0.0001f
+            ? Mathf.Abs(visibleBounds.size.z / colliderSize.z)
+            : 1f;
+
+        Vector3 currentScale = captureZoneTransform.localScale;
+        captureZoneTransform.localScale = new Vector3(scaleX, currentScale.y, scaleZ);
+
+        Vector3 currentPosition = captureZoneTransform.localPosition;
+        captureZoneTransform.localPosition = new Vector3(
+            visibleBounds.center.x,
+            currentPosition.y,
+            visibleBounds.center.z);
     }
 
     /// <summary>

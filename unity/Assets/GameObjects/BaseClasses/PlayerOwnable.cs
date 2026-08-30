@@ -7,8 +7,15 @@ public class PlayerOwnable : MonoBehaviour
 
     [SerializeField] private Renderer playerRenderer;
     [SerializeField] private Material neutralMaterial;
+    private Material defaultMaterial;
 
     public event Action<Player> OnOwnerChanged;
+
+    private void Awake()
+    {
+        if (playerRenderer != null)
+            defaultMaterial = playerRenderer.sharedMaterial;
+    }
 
     public void SetOwner(Player owner)
     {
@@ -18,10 +25,14 @@ public class PlayerOwnable : MonoBehaviour
         if (playerRenderer == null)
             return;
 
-        if (owner != null && owner.playerMaterial != null)
-            playerRenderer.sharedMaterial = owner.playerMaterial;
-        else if (neutralMaterial != null)
-            playerRenderer.sharedMaterial = neutralMaterial;
+        Material targetMaterial = owner != null && owner.playerMaterial != null
+            ? owner.playerMaterial
+            : neutralMaterial != null
+                ? neutralMaterial
+                : defaultMaterial;
+
+        if (targetMaterial != null)
+            playerRenderer.sharedMaterial = targetMaterial;
     }
 
     public Player GetOwner()
