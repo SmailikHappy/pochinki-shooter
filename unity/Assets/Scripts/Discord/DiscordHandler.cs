@@ -24,6 +24,7 @@ public sealed class DiscordHandler : MonoBehaviour
     {
         public string userId;
         public string username;
+        public string avatarUrl;
         public float mouseX;
         public float mouseY;
     }
@@ -141,6 +142,7 @@ public sealed class DiscordHandler : MonoBehaviour
             }
 
             user.Username = string.IsNullOrWhiteSpace(p.username) ? user.Username : p.username;
+            user.AvatarUrl = string.IsNullOrWhiteSpace(p.avatarUrl) ? user.AvatarUrl : p.avatarUrl;
             user.MouseX = p.mouseX;
             user.MouseY = p.mouseY;
             user.IsSelf = p.userId == LocalUserId;

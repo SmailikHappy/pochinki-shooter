@@ -31,6 +31,18 @@ public class PachinkoBall : MonoBehaviour
         _spawnPosition = transform.position;
         _spawnTime = Time.time;
         _initialized = true;
+
+        ApplyOwnerColor();
+    }
+
+    private void ApplyOwnerColor()
+    {
+        if (field == null || field.Owner == null || field.Owner.playerMaterial == null)
+            return;
+
+        Renderer ballRenderer = GetComponent<Renderer>();
+        if (ballRenderer != null)
+            ballRenderer.material = field.Owner.playerMaterial;
     }
 
     private void Start()

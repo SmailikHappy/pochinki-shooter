@@ -1,5 +1,7 @@
 // Player.cs
+using System.Collections;
 using UnityEngine;
+using UnityEngine.Networking;
 
 public sealed class Player : MonoBehaviour
 {
@@ -62,5 +64,32 @@ public sealed class Player : MonoBehaviour
         {
             Destroy(playerMaterial);
         }
+    }
+
+    public void LoadAvatarTexture(string avatarUrl)
+    {
+        if (string.IsNullOrWhiteSpace(avatarUrl) || playerMaterial == null)
+            return;
+
+        StartCoroutine(DownloadAvatarRoutine(avatarUrl));
+    }
+
+    private IEnumerator DownloadAvatarRoutine(string url)
+    {
+        using UnityWebRequest request = UnityWebRequestTexture.GetTexture(url);
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogWarning($"Player: не удалось загрузить аватар с {url}: {request.error}");
+            yield break;
+        }
+
+        if (playerMaterial == null) // игрок мог уже быть уничтожен к моменту ответа сети
+            yield break;
+
+        Texture2D avatarTexture = DownloadHandlerTexture.GetContent(request);
+        playerMaterial.mainTexture = avatarTexture;
+        playerMaterial.color = Color.white; // текстура не должна тускнеть от цветового тинта
     }
 }

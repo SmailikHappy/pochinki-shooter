@@ -76,6 +76,12 @@ public sealed class GameHandler : MonoBehaviour
             {
                 players[user.UniqueId] = player;
                 rosterChanged = true;
+                player.Bind(user);
+                player.Bind(user);
+                player.SetMaterial(baseMaterial);
+
+                if (user is DiscordUser discordUser && !string.IsNullOrWhiteSpace(discordUser.AvatarUrl))
+                    player.LoadAvatarTexture(discordUser.AvatarUrl);
             }
         }
 
